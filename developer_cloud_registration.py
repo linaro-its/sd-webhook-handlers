@@ -69,8 +69,8 @@ def send_welcome_email(ticket_data):
     account_dn = shared_ldap.find_from_email(email_address)
     uid = account_dn.split("=", 1)[1].split(",", 1)[0]
     # Read in the template email.
-    dir = os.path.dirname(os.path.abspath(__file__))
-    with open("%s/developer_cloud_registration_email.txt" % dir, "r") as email_file:
+    file_dir = os.path.dirname(os.path.abspath(__file__))
+    with open("%s/developer_cloud_registration_email.txt" % file_dir, "r") as email_file:
         body = email_file.read()
     # Substitute the parameters
     name = shared_sd.get_field(ticket_data, cf_firstname).strip()
@@ -92,7 +92,37 @@ def send_welcome_email(ticket_data):
 
 def create_openstack_ticket(ticket_data):
     """ Create a ticket for a new OpenStack project. """
-    _ = ticket_data
+    email_address = shared_sd.reporter_email_address(ticket_data).strip()
+    email_address = shared_ldap.cleanup_if_gmail(email_address)
+    service_desk_id = shared_sd.get_servicedesk_id("DC")
+    if service_desk_id == -1:
+        shared_sd.post_comment(
+            "Unable to get ID for DC Service Desk project", False)
+        return
+    request_type_id = shared_sd.get_request_type_id(
+        "Request a new OpenStack project", service_desk_id)
+    if request_type_id == -1:
+        shared_sd.post_comment(
+            "Unable to get ID for new OpenStack project request type", False)
+        return
+    # request = {
+    #     "serviceDeskId": service_desk_id,
+    #     "requestTypeId": request_type_id,
+    #     "requestFieldValues": {
+
+    #     },
+    #     "raiseOnBehalfOf": email_address
+    # }
+    # shared_sd.create_request(request)
+
+
+def remove_local_user(ticket_data):
+    """ Remove the user from Jira. """
+    # Note that LoginFree creates an account with precisely the
+    # email address that the user provided, so we skip the GMail
+    # step of removing any extra full-stops.
+    email_address = shared_sd.reporter_email_address(ticket_data).strip()
+    shared_sd.remove_user(email_address)
 
 
 def transition(status_from, status_to, ticket_data):
@@ -117,3 +147,10 @@ def transition(status_from, status_to, ticket_data):
         # Create a ticket in the DC project to request a new
         # OpenStack project.
         create_openstack_ticket(ticket_data)
+        #
+        # If we created a new account then remove the "local" one from
+        # Jira so that the LDAP account takes priority. Note that we do
+        # this after everything else because otherwise we could end up
+        # in a situation where the LDAP account hasn't synced yet and
+        # then creating a new ticket would fail.
+        remove_local_user(ticket_data)
