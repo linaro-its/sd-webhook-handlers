@@ -69,7 +69,7 @@ def send_welcome_email(ticket_data):
     account_dn = shared_ldap.find_from_email(email_address)
     uid = account_dn.split("=", 1)[1].split(",", 1)[0]
     # Read in the template email.
-    dir = os.path.abspath(__file__)
+    dir = os.path.dirname(os.path.abspath(__file__))
     with open("%s/developer_cloud_registration_email.txt" % dir, "r") as email_file:
         body = email_file.read()
     # Substitute the parameters
