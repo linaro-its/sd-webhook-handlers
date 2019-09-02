@@ -70,7 +70,7 @@ def send_welcome_email(ticket_data):
     uid = account_dn.split("=", 1)[1].split(",", 1)[0]
     # Read in the template email.
     dir = os.path.abspath(__file__)
-    with open("%s/rt265_email.txt" % dir, "r") as email_file:
+    with open("%s/developer_cloud_registration_email.txt" % dir, "r") as email_file:
         body = email_file.read()
     # Substitute the parameters
     name = shared_sd.get_field(ticket_data, cf_firstname).strip()
