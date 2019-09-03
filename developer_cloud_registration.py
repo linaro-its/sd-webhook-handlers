@@ -123,11 +123,13 @@ def create_openstack_ticket(ticket_data):
         "requestTypeId": request_type_id,
         "requestFieldValues": {
             "customfield_%s" % cf_devcloud_project_size: value_devcloud_project_size,
-            "customfield_%s" % cf_devcloud_public_ips: value_devcloud_public_ips,
-            "customfield_%s" % cf_devcloud_special_request: value_devcloud_special_request
+            "customfield_%s" % cf_devcloud_public_ips: value_devcloud_public_ips
         },
         "raiseOnBehalfOf": email_address
     }
+    if value_devcloud_special_request is not None:
+        request["requestFieldValues"]["customfield_%s" % cf_devcloud_special_request] = \
+            value_devcloud_special_request
     shared_sd.create_request(request)
 
 
