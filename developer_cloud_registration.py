@@ -16,7 +16,7 @@ CAPABILITIES = [
     "TRANSITION"
 ]
 
-SAVE_TICKET_DATA = True
+SAVE_TICKET_DATA = False
 
 
 class AccountCreationStatus(Enum):
