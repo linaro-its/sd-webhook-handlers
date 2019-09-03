@@ -105,24 +105,30 @@ def create_openstack_ticket(ticket_data):
         shared_sd.post_comment(
             "Unable to get ID for new OpenStack project request type", False)
         return
-    # request = {
-    #     "serviceDeskId": service_desk_id,
-    #     "requestTypeId": request_type_id,
-    #     "requestFieldValues": {
 
-    #     },
-    #     "raiseOnBehalfOf": email_address
-    # }
-    # shared_sd.create_request(request)
-
-
-def deactivate_local_user(ticket_data):
-    """ Deactivate the user from Jira. """
-    # Note that LoginFree creates an account with precisely the
-    # email address that the user provided, so we skip the GMail
-    # step of removing any extra full-stops.
-    email_address = shared_sd.reporter_email_address(ticket_data).strip()
-    shared_sd.deactivate_user(email_address)
+    cf_devcloud_project_size = custom_fields.get("DevCloud Project Size")
+    cf_devcloud_special_request = custom_fields.get("DevCloud Special Request")
+    cf_devcloud_public_ips = custom_fields.get("DevCloud Public IP Addresses")
+    if (cf_devcloud_project_size is None or
+            cf_devcloud_special_request is None or
+            cf_devcloud_public_ips is None):
+        shared_sd.post_comment(
+            "Unable to get custom field IDs for OpenStack project request", False)
+        return
+    value_devcloud_project_size = shared_sd.get_field(ticket_data, cf_devcloud_project_size)
+    value_devcloud_special_request = shared_sd.get_field(ticket_data, cf_devcloud_special_request)
+    value_devcloud_public_ips = shared_sd.get_field(ticket_data, cf_devcloud_public_ips)
+    request = {
+        "serviceDeskId": service_desk_id,
+        "requestTypeId": request_type_id,
+        "requestFieldValues": {
+            "customfield_%s" % cf_devcloud_project_size: value_devcloud_project_size,
+            "customfield_%s" % cf_devcloud_public_ips: value_devcloud_public_ips,
+            "customfield_%s" % cf_devcloud_special_request: value_devcloud_special_request
+        },
+        "raiseOnBehalfOf": email_address
+    }
+    shared_sd.create_request(request)
 
 
 def transition(status_from, status_to, ticket_data):
@@ -148,9 +154,5 @@ def transition(status_from, status_to, ticket_data):
         # OpenStack project.
         create_openstack_ticket(ticket_data)
         #
-        # If we created a new account then deactivate the "local" one from
-        # Jira so that the LDAP account takes priority. Note that we do
-        # this after everything else because otherwise we could end up
-        # in a situation where the LDAP account hasn't synced yet and
-        # then creating a new ticket would fail.
-        deactivate_local_user(ticket_data)
+        # Resolve the ticket.
+        shared_sd.resolve_ticket()
