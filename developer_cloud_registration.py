@@ -116,13 +116,13 @@ def create_openstack_ticket(ticket_data):
     # shared_sd.create_request(request)
 
 
-def remove_local_user(ticket_data):
-    """ Remove the user from Jira. """
+def deactivate_local_user(ticket_data):
+    """ Deactivate the user from Jira. """
     # Note that LoginFree creates an account with precisely the
     # email address that the user provided, so we skip the GMail
     # step of removing any extra full-stops.
     email_address = shared_sd.reporter_email_address(ticket_data).strip()
-    shared_sd.remove_user(email_address)
+    shared_sd.deactivate_user(email_address)
 
 
 def transition(status_from, status_to, ticket_data):
@@ -148,9 +148,9 @@ def transition(status_from, status_to, ticket_data):
         # OpenStack project.
         create_openstack_ticket(ticket_data)
         #
-        # If we created a new account then remove the "local" one from
+        # If we created a new account then deactivate the "local" one from
         # Jira so that the LDAP account takes priority. Note that we do
         # this after everything else because otherwise we could end up
         # in a situation where the LDAP account hasn't synced yet and
         # then creating a new ticket would fail.
-        remove_local_user(ticket_data)
+        deactivate_local_user(ticket_data)
