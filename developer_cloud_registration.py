@@ -2,12 +2,12 @@
 
 import os
 from enum import Enum
-import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import shared.shared_sd as shared_sd
 import shared.custom_fields as custom_fields
 import shared.shared_ldap as shared_ldap
+import shared.email
 
 
 # Define what this handler can handle :)
@@ -53,13 +53,6 @@ def create_ldap_account(ticket_data):
     return result
 
 
-def send_email(msg):
-    """ Send the email message. """
-    smtp_func = smtplib.SMTP('localhost')
-    smtp_func.sendmail(msg['From'], msg['To'], msg.as_string())
-    smtp_func.quit()
-
-
 def send_welcome_email(ticket_data):
     """ Send a welcome email to the ticket requester. """
     cf_firstname = custom_fields.get("First Name")
@@ -87,7 +80,7 @@ def send_welcome_email(ticket_data):
     msg['From'] = "it-support@linaro.org"
     msg['To'] = email_address
     msg.attach(MIMEText(body, 'plain', 'utf-8'))
-    send_email(msg)
+    shared.email.send_email(msg)
 
 
 def create_openstack_ticket(ticket_data):
