@@ -102,21 +102,25 @@ def create_openstack_ticket(ticket_data):
     cf_devcloud_project_size = custom_fields.get("DevCloud Project Size")
     cf_devcloud_special_request = custom_fields.get("DevCloud Special Request")
     cf_devcloud_public_ips = custom_fields.get("DevCloud Public IP Addresses")
+    cf_devcloud_duration = custom_fields.get("DevCloud Project Duration")
     if (cf_devcloud_project_size is None or
             cf_devcloud_special_request is None or
-            cf_devcloud_public_ips is None):
+            cf_devcloud_public_ips is None or
+            cf_devcloud_duration is None):
         shared_sd.post_comment(
             "Unable to get custom field IDs for OpenStack project request", False)
         return
     value_devcloud_project_size = shared_sd.get_field(ticket_data, cf_devcloud_project_size)
     value_devcloud_special_request = shared_sd.get_field(ticket_data, cf_devcloud_special_request)
     value_devcloud_public_ips = shared_sd.get_field(ticket_data, cf_devcloud_public_ips)
+    value_devcloud_duration = shared_sd.get_field(ticket_data, cf_devcloud_duration)
     request = {
         "serviceDeskId": service_desk_id,
         "requestTypeId": request_type_id,
         "requestFieldValues": {
             "customfield_%s" % cf_devcloud_project_size: value_devcloud_project_size,
-            "customfield_%s" % cf_devcloud_public_ips: value_devcloud_public_ips
+            "customfield_%s" % cf_devcloud_public_ips: value_devcloud_public_ips,
+            "customfield_%s" % cf_devcloud_duration: value_devcloud_duration
         },
         "raiseOnBehalfOf": email_address
     }
