@@ -49,7 +49,8 @@ def create_ldap_account(ticket_data):
             result = AccountCreationStatus.CREATION_FAILED
             shared_sd.post_comment("Failed to create account", True)
     # Make sure that the account is a member of dev-cloud-users
-    shared_ldap.add_to_group("dev-cloud-users", account_dn)
+    if not shared_ldap.add_to_group("dev-cloud-users", account_dn):
+        shared_sd.post_comment("Failed to add to dev-cloud-users", False)
     return result
 
 
