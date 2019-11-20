@@ -43,7 +43,8 @@ def create_ldap_account(ticket_data):
         account_dn = shared_ldap.create_account(
             first_name,
             family_name,
-            email_address
+            email_address,
+            "{MD5}moQ/IGd6Usp5r5AxIxR68A==" # Welcome!
         )
         if account_dn is None:
             result = AccountCreationStatus.CREATION_FAILED

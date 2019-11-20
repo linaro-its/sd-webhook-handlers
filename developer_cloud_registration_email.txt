@@ -12,6 +12,9 @@ the following email address and click on OK:
 You will receive an email with a link in it. Click on the link and
 set your Linaro Login password.
 
+You *must* do this before you can view or create any further
+support tickets!
+
 *Please note* that some of Linaro's systems can take up to an hour
 to recognise your password after it has been changed.
 
