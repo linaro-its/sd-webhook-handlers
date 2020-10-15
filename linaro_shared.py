@@ -38,6 +38,9 @@ def trigger_google_sync(level=""):
             'it-support-bot@login-us-east-1.linaro.org',
             level], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         stdoutdata, stderrdata = process.communicate()
+        # process returns bytes so we need to convert to strings
+        stdoutdata = stdoutdata.decode("utf-8")
+        stderrdata = stderrdata.decode("utf-8")
         if stdoutdata == "" and stderrdata == "":
             shared_sd.post_comment(
                 "Synchronisation to Google triggered. It may take up to 15 "
