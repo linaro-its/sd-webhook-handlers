@@ -10,7 +10,7 @@ import subprocess
 import traceback
 
 import shared.shared_sd as shared_sd
-
+import shared.shared_vault as shared_vault
 
 def pem_path():
     """ Work out where the PEM file is located. """
@@ -55,7 +55,16 @@ def check_pem():
     Make sure that the pem file is owned correctly and has the correct file
     permissions.
     """
-    result = os.stat(pem_path())
+    pem_location = pem_path()
+    # If the PEM file doesn't exist, fetch it from the Vault and save it
+    if not os.path.exists(pem_location):
+        pem = shared_vault.get_secret("secret/misc/it-support-bot.pem")
+        with open(pem_location, "w") as fh:
+            fh.write(pem)
+        os.chmod(pem_location, stat.S_IREAD | stat.S_IWRITE)
+    result = os.stat(pem_location)
+    # These shouldn't fail if we've just created the file but
+    # may if the file was put in place through other means.
     if stat.S_IMODE(result.st_mode) != 384:  # 0600 octal
         shared_sd.post_comment(
             "BOT PEM file has incorrect permissions.", False)
