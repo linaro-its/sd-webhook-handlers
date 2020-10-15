@@ -51,7 +51,7 @@ def process_public_comment(ticket_data, last_comment, keyword):
     # Get the definitive email address for the group and the owner(s).
     cf_group_email_address = custom_fields.get("Group Email Address")
     group_email_address = shared_sd.get_field(
-        ticket_data, cf_group_email_address).strip().lower().encode('utf-8')
+        ticket_data, cf_group_email_address).strip().lower()
     group_email_address, result = shared_ldap.find_group(
         group_email_address, ['owner'])
     # Make sure that the group still exists because this is all asynchronous
@@ -85,7 +85,7 @@ def create(ticket_data):
     """Triggered when the issue is created."""
     cf_group_email_address = custom_fields.get("Group Email Address")
     group_email_address = shared_sd.get_field(
-        ticket_data, cf_group_email_address).strip().lower().encode('utf-8')
+        ticket_data, cf_group_email_address).strip().lower()
     group_email_address, result = shared_ldap.find_group(
         group_email_address, ['owner'])
 
@@ -180,7 +180,7 @@ def transition(_, status_to, ticket_data):
     if status_to == "In Progress":
         cf_group_email_address = custom_fields.get("Group Email Address")
         group_email_address = shared_sd.get_field(
-            ticket_data, cf_group_email_address).strip().lower().encode('utf-8')
+            ticket_data, cf_group_email_address).strip().lower()
         group_email_address, result = shared_ldap.find_group(
             group_email_address, ['owner'])
         action_change(ticket_data, result[0])
