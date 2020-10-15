@@ -5,7 +5,7 @@ import shared.shared_ldap as shared_ldap
 import shared.shared_sd as shared_sd
 import linaro_shared
 
-CAPABILITES = [
+CAPABILITIES = [
     "CREATE",
     "COMMENT",
     "TRANSITION"
