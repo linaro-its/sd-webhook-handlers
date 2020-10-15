@@ -247,6 +247,8 @@ def batch_process_ownership_changes(
             keyword = "remove"
         else:
             keyword = "auto"
+    else:
+        keyword = change_to_make
 
     for change in batch:
         if change != "":
