@@ -14,8 +14,16 @@ import shared.shared_vault as shared_vault
 
 def pem_path():
     """ Work out where the PEM file is located. """
+    # Start by assuming that the PEM is in the rt_handlers folder
     script_directory = os.path.dirname(os.path.realpath(__file__))
-    return os.path.join(script_directory, "it-support-bot.pem")
+    file_location = os.path.join(script_directory, "it-support-bot.pem")
+    # If it isn't there, assume it is going to up a directory. That
+    # will be owned by www-data (running the WSGI process) so will
+    # be writeable if we need to retrieve it from Vault.
+    if not os.path.exists(file_location):
+        script_directory = os.path.dirname(script_directory)
+        file_location = os.path.join(script_directory, "it-support-bot.pem")
+    return file_location
 
 
 def trigger_google_sync(level=""):
@@ -59,8 +67,8 @@ def check_pem():
     # If the PEM file doesn't exist, fetch it from the Vault and save it
     if not os.path.exists(pem_location):
         pem = shared_vault.get_secret("secret/misc/it-support-bot.pem")
-        with open(pem_location, "w") as fh:
-            fh.write(pem)
+        with open(pem_location, "w") as pem_file:
+            pem_file.write(pem)
         os.chmod(pem_location, stat.S_IREAD | stat.S_IWRITE)
     result = os.stat(pem_location)
     # These shouldn't fail if we've just created the file but
