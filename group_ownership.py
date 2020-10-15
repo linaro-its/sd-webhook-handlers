@@ -232,7 +232,7 @@ def batch_process_ownership_changes(
     change_made = False
 
     # We need a list of current owners to sanity check the request.
-    result = shared_ldap.find_group(group_cn, ["owner"])
+    _, result = shared_ldap.find_group(group_cn, ["owner"])
     if len(result) == 1:
         owners = result[0].owner.values
     else:
