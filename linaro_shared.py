@@ -11,6 +11,7 @@ import traceback
 
 import shared.shared_sd as shared_sd
 import shared.shared_vault as shared_vault
+import shared.shared_ldap as shared_ldap
 
 def pem_path():
     """ Work out where the PEM file is located. """
@@ -114,3 +115,30 @@ def cleanup_if_markdown(email_address):
 
     # Remove the trailing ] and return the email address
     return part2[len("mailto:"):-1]
+
+
+def get_exec_from_dn(ldap_entry_dn):
+    """
+    Walk up the reporting structure until we get to someone who is in
+    the Exec group. Return that someone.
+    """
+
+    # Get the membership of the Exec group. Use the mailing list so that
+    # we get the full DNs, thus making it easier to check.
+    _, memb_result = shared_ldap.find_group("exec", ["uniqueMember"])
+    members = memb_result[0].uniqueMember.values
+
+    # Walk up the tree ...
+    while True:
+        result = shared_ldap.get_object(ldap_entry_dn, ["manager"])
+        if result is not None and result.manager.value is not None:
+            ldap_entry_dn = result.manager.value
+            if ldap_entry_dn in members:
+                mgr_email = shared_ldap.get_object(result.manager.value, ["mail"])
+                return mgr_email.mail.values[0]
+            # otherwise loop to that person
+        else:
+            # shouldn't happen
+            break
+    # shouldn't get here ...
+    return None
