@@ -1,7 +1,11 @@
-# About
+# Developer Cloud Registration handler
+
+## Introduction
+
 This handler is used when processing registration requests for Linaro's Developer Cloud service.
 
-# Form fields
+## Form fields
+
 The associated form has the following fields:
 
 * First name (required)
@@ -16,7 +20,8 @@ The associated form has the following fields:
 
 In addition, the summary and approvers fields are hidden.
 
-# Behaviour
+## Behaviour
+
 The handler only operates on the `TRANSITION` event and that is triggered when the issue is approved.
 
 When the request is approved, the handler creates a new LDAP account if one is required, adds the account to the desired LDAP group, sends a welcome email to the new registrant and, finally, creates a new SD ticket under a different project to initiate the process of setting up an OpenStack project.

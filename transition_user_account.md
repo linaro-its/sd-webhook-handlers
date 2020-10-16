@@ -1,12 +1,17 @@
-# About
+# Transition User Account handler
+
+## Introduction
+
 This handler is used to transition accounts between Linaro and Member states.
 
-# Form fields
+## Form fields
+
 There is a single, multi-line text field which the automation parses.
 
 The summary field is hidden.
 
-# Behaviour
+## Behaviour
+
 The handler operates on the `CREATE` and `COMMENT` events.
 
 The `CREATE` event steps through each of the named accounts, deciding which transition direction the account has to take. Regardless of the direction, the account is cleaned of certain attributes and group membership.
