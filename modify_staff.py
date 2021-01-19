@@ -60,6 +60,7 @@ def create(ticket_data):
             True
         )
     # If a new manager has been provided, add them as a request participant
+    new_mgr = None
     if reports_to is not None:
         new_mgr = reports_to["emailAddress"]
         # ... but only if they aren't the person who raised the ticket. If
@@ -108,6 +109,11 @@ def create(ticket_data):
         )
     # Get their Exec
     exec_email = linaro_shared.get_exec_from_dn(person_dn)
+    # This can fail if an intermediate manager is leaving Linaro, in
+    # which case find the Exec for the proposed new manager.
+    if exec_email is None and new_mgr is not None:
+        new_mgr_dn = shared_ldap.find_single_object_from_email(new_mgr)
+        exec_email = linaro_shared.get_exec_from_dn(new_mgr_dn)
     if exec_email is not None:
         cf_approvers = custom_fields.get("Executive Approvers")
         shared_sd.assign_approvers([exec_email], cf_approvers)

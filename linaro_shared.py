@@ -121,6 +121,10 @@ def get_exec_from_dn(ldap_entry_dn):
     """
     Walk up the reporting structure until we get to someone who is in
     the Exec group. Return that someone.
+
+    This function can fail to return a result if someone in the tree is
+    in the process of leaving, i.e. they are recorded as a manager but
+    are no longer an active account.
     """
 
     # Get the membership of the Exec group. Use the mailing list so that
@@ -129,7 +133,8 @@ def get_exec_from_dn(ldap_entry_dn):
     members = memb_result[0].uniqueMember.values
 
     # Walk up the tree ...
-    while True:
+    searching = True
+    while searching:
         result = shared_ldap.get_object(ldap_entry_dn, ["manager"])
         if result is not None and result.manager.value is not None:
             ldap_entry_dn = result.manager.value
@@ -138,7 +143,6 @@ def get_exec_from_dn(ldap_entry_dn):
                 return mgr_email.mail.values[0]
             # otherwise loop to that person
         else:
-            # shouldn't happen
-            break
-    # shouldn't get here ...
+            # The intermediate manager is leaving.
+            searching = False
     return None
