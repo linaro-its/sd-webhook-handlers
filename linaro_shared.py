@@ -3,15 +3,19 @@ Some functions shared across the handlers that are too Linaro-specific
 to be included in sd-webhook-framework.
 """
 
+import base64
+import hashlib
 import os
 import pwd
+import random
 import stat
 import subprocess
 import traceback
 
+import shared.shared_ldap as shared_ldap
 import shared.shared_sd as shared_sd
 import shared.shared_vault as shared_vault
-import shared.shared_ldap as shared_ldap
+
 
 def pem_path():
     """ Work out where the PEM file is located. """
@@ -146,3 +150,20 @@ def get_exec_from_dn(ldap_entry_dn):
             # The intermediate manager is leaving.
             searching = False
     return None
+
+def make_password():
+    """
+    Make a new password. This is a pythonised version of the routine used
+    by LAM Pro.
+    """
+    char_list = (
+        '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ.-_'
+    )
+    password = ''
+    for _ in range(0, 12):
+        rand = random.randint(0, len(char_list)-1)
+        password += char_list[rand]
+
+    md5_hash = hashlib.md5()
+    md5_hash.update(password.encode('utf-8'))
+    return password, "{MD5}%s" % base64.encodebytes(md5_hash.digest()).decode('utf-8').strip()

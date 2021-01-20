@@ -1,0 +1,40 @@
+Dear {0}
+
+An account has been created for you on Linaro's Login service and
+the next step is for you to set your password. Please go to
+https://login.linaro.org/ and click on "Forgot password?". Enter
+the following email address and click on OK:
+
+{1}
+
+You will receive an email with a link in it. Click on the link and
+set your Linaro Login password.
+
+You *must* do this before you can use Linaro's systems.
+
+*Please note* that some of Linaro's systems can take up to an hour
+to recognise your password after it has been changed.
+
+If you require SSH access to servers, you can store your SSH public
+keys on https://login.linaro.org/. After logging in with your email
+address and password, you will see the "SSH keys" section where you
+can paste your key(s).
+
+Don't forget to click on "Save" after adding your keys!
+
+Information about the supported format of public keys can be
+found at http://linaro.co/OpenSSHKeys.
+
+When using SSH, your username is {2}.
+
+IMPORTANT! You will receive an email every six months to confirm
+that you still need this account. If you do not click on the link
+in that email within a month of receipt, your account will be
+closed.
+
+If you have any problems, please email it-support@linaro.org or
+raise a ticket by going to https://it-support.linaro.org/.
+
+Best regards
+
+Linaro IT Services
