@@ -40,7 +40,16 @@ def create(ticket_data):
     """ Ticket creation handler. """
     cf_email_address = custom_fields.get("Email Address")
     email_address = shared_sd.get_field(
-        ticket_data, cf_email_address).strip().lower()
+        ticket_data, cf_email_address)
+    if email_address is None:
+        # It shouldn't be - it is a mandatory field ...
+        shared_sd.post_comment("It has not been possible to create the account as requested.", True)
+        shared_sd.post_comment(
+            "Unable to retrieve email address from CF %s" % cf_email_address, False)
+        shared_sd.resolve_ticket("Declined")
+        return
+
+    email_address = email_address.strip().lower()
     email_address = shared_ldap.cleanup_if_gmail(email_address)
 
     shared_sd.set_summary("Create external user/account for %s" % email_address)
@@ -60,6 +69,7 @@ def create(ticket_data):
     uid = shared_ldap.calculate_uid(first_name, surname)
     if uid is None:
         shared_sd.post_comment("It has not been possible to create the account as requested.", True)
+        shared_sd.post_comment("Cannot calculated UID for '%s' '%s'" % (first_name, surname), False)
         shared_sd.resolve_ticket("Declined")
         return
 
