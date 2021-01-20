@@ -33,7 +33,7 @@ def comment(ticket_data):
             False)
     elif keyword == "retry":
         create(ticket_data)
-    elif last_comment['public']:
+    elif last_comment is not None and last_comment['public']:
         shared_sd.resolve_ticket()
 
 def create(ticket_data):
