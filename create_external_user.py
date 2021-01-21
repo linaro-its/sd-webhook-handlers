@@ -1,8 +1,6 @@
 """ Handler to create external users or accounts. """
 
 import os
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 
 import shared.custom_fields as custom_fields
 import shared.email
@@ -168,21 +166,28 @@ def send_new_account_email(first_name, surname, email_address, account_dn):
     uid = account_dn.split("=", 1)[1].split(",", 1)[0]
     # Read in the template email.
     file_dir = os.path.dirname(os.path.abspath(__file__))
-    with open("%s/developer_cloud_registration_email.txt" % file_dir, "r") as email_file:
-        body = email_file.read()
+    with open("%s/create_external_user_email.txt" % file_dir, "r") as email_file:
+        text_body = email_file.read()
+    with open("%s/create_external_user_email.html" % file_dir, "r") as email_file:
+        html_body = email_file.read()
     # Substitute the parameters
     name = first_name
     if name == "":
         name = surname
-    body = body.format(
+    text_body = text_body.format(
+        name,
+        email_address,
+        uid
+    )
+    html_body = html_body.format(
         name,
         email_address,
         uid
     )
     # and send it.
-    msg = MIMEMultipart('alternative')
-    msg['Subject'] = "Your Developer Cloud registration"
-    msg['From'] = "it-support@linaro.org"
-    msg['To'] = email_address
-    msg.attach(MIMEText(body, 'plain', 'utf-8'))
-    shared.email.send_email(msg)
+    shared.email.send_email_parts(
+        "Linaro IT Support <it-support@linaro.org>",
+        email_address,
+        "Your account on the Linaro Login service",
+        html_body,
+        text_body)
