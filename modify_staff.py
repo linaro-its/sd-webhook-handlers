@@ -75,29 +75,7 @@ def create(ticket_data):
             )
     # Create an internal comment for HR that specifies all of the bits that
     # need to be done.
-    comment = ""
-    if new_department is not None:
-        comment += (
-            "* Change department/team to %s\r\n" %
-            new_department["value"]
-        )
-    if reports_to is not None:
-        comment += (
-            "* Change manager to %s\r\n" %
-            new_mgr
-        )
-    cf_new_job_title = custom_fields.get("New job title")
-    new_job_title = shared_sd.get_field(ticket_data, cf_new_job_title)
-    if new_job_title is not None:
-        comment += (
-            "* Change job title to %s\r\n" %
-            new_job_title
-        )
-    if comment != "":
-        shared_sd.post_comment(
-            "HR: here is a summary of the changes to be made:\r\n%s" % comment,
-            False
-        )
+    post_hr_guidance(new_department, reports_to, new_mgr, ticket_data)
     # Get their manager
     mgr_email = shared_ldap.get_manager_from_dn(person_dn)
     if mgr_email is None:
@@ -124,6 +102,11 @@ def create(ticket_data):
         )
     # If the ticket wasn't created by the manager, get the manager to approve
     # it.
+    post_approval_message(mgr_email, exec_email, person)
+
+
+def post_approval_message(mgr_email, exec_email, person):
+    """ Move to next step in the approval process. """
     if mgr_email not in (shared.globals.REPORTER, exec_email):
         shared_sd.post_comment(
             "As you are not the manager for %s, %s will be asked to "
@@ -146,3 +129,30 @@ def create(ticket_data):
                 True
             )
         shared_sd.transition_request_to("Executive Approval")
+
+
+def post_hr_guidance(new_department, reports_to, new_mgr, ticket_data):
+    """ Post a private comment making it clear what HR need to do. """
+    comment = ""
+    if new_department is not None:
+        comment += (
+            "* Change department/team to %s\r\n" %
+            new_department["value"]
+        )
+    if reports_to is not None:
+        comment += (
+            "* Change manager to %s\r\n" %
+            new_mgr
+        )
+    cf_new_job_title = custom_fields.get("New job title")
+    new_job_title = shared_sd.get_field(ticket_data, cf_new_job_title)
+    if new_job_title is not None:
+        comment += (
+            "* Change job title to %s\r\n" %
+            new_job_title
+        )
+    if comment != "":
+        shared_sd.post_comment(
+            "HR: here is a summary of the changes to be made:\r\n%s" % comment,
+            False
+        )
