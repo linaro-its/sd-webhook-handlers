@@ -31,7 +31,7 @@ SAVE_TICKET_DATA = False
 
 def comment(ticket_data):
     """ Comment handler """
-    most_recent_comment, keyword = shared_sd.central_comment_handler([], ["help", "retry"])
+    last_comment, keyword = shared_sd.central_comment_handler([], ["help", "retry"])
 
     if keyword == "help":
         shared_sd.post_comment("All bot commands must be internal comments and the first "
@@ -42,8 +42,8 @@ def comment(ticket_data):
                                False)
     elif keyword == "retry":
         create(ticket_data)
-    elif most_recent_comment["public"]:
-        shared_sd.deassign_ticket_if_appropriate(most_recent_comment, "Waiting for support")
+    elif last_comment is not None and last_comment["public"]:
+        shared_sd.deassign_ticket_if_appropriate(last_comment)
 
 
 def create(ticket_data):
@@ -68,9 +68,8 @@ def create(ticket_data):
         clean = address.strip().lower()
         if clean != "":
             result = transition_user_account(clean)
-            if result == RESULT_STATE.IT:
-                outcome = result
-            elif result == RESULT_STATE.Customer and outcome == RESULT_STATE.Done:
+            if (result == RESULT_STATE.IT or
+                    (result == RESULT_STATE.Customer and outcome == RESULT_STATE.Done)):
                 outcome = result
     # Did all of the accounts transition?
     if outcome == RESULT_STATE.Done:
