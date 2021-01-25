@@ -12,6 +12,8 @@ CAPABILITIES = [
 ]
 
 IT_BOT = "uid=it.support.bot,ou=mail-contacts-unsynced,ou=accounts,dc=linaro,dc=org"
+GROUP_EMAIL_ADDRESS = "Group Email Address"
+WONT_DO = "Won't Do"
 
 def comment(ticket_data):
     """ Comment handler """
@@ -30,14 +32,14 @@ def comment(ticket_data):
         shared_sd.transition_request_to("Open")
         create(ticket_data)
     elif (last_comment['public'] and
-          last_comment['author']['name'] != shared.globals.CONFIGURATION["bot_name"] and
-          shared_sd.get_current_status() != "Resolved"):
-        if keyword is None or not process_public_comment(ticket_data, last_comment, keyword):
-            shared_sd.post_comment(
-                "Your comment has not been recognised as an instruction to "
-                "the bot so the ticket will be left for IT Services to "
-                "review.", True)
-            shared_sd.deassign_ticket_if_appropriate(last_comment)
+          not shared_sd.user_is_bot(last_comment['author']) and
+          shared_sd.get_current_status() != "Resolved" and
+          (keyword is None or not process_public_comment(ticket_data, last_comment, keyword))):
+        shared_sd.post_comment(
+            "Your comment has not been recognised as an instruction to "
+            "the bot so the ticket will be left for IT Services to "
+            "review.", True)
+        shared_sd.deassign_ticket_if_appropriate(last_comment)
 
 
 def process_public_comment(ticket_data, last_comment, keyword):
@@ -49,7 +51,7 @@ def process_public_comment(ticket_data, last_comment, keyword):
     # Otherwise, deassign and let IT work on what was said.
     #
     # Get the definitive email address for the group and the owner(s).
-    cf_group_email_address = custom_fields.get("Group Email Address")
+    cf_group_email_address = custom_fields.get(GROUP_EMAIL_ADDRESS)
     group_email_address = shared_sd.get_field(
         ticket_data, cf_group_email_address).strip().lower()
     group_email_address, result = shared_ldap.find_group(
@@ -60,30 +62,30 @@ def process_public_comment(ticket_data, last_comment, keyword):
         shared_sd.post_comment(
             "Sorry but the group's email address can't be found in Linaro "
             "Login.", True)
-        shared_sd.resolve_ticket("Won't Do")
+        shared_sd.resolve_ticket(WONT_DO)
         return True
     if len(result) != 1:
         shared_sd.post_comment(
             "Sorry but, somehow, the group's email address appears more than "
             "once in Linaro Login.", True)
-        shared_sd.resolve_ticket("Won't Do")
+        shared_sd.resolve_ticket(WONT_DO)
         return True
 
     if (result[0].owner.values != [] and
-            shared_ldap.reporter_is_group_owner(result[0].owner.values)):
-        if keyword in ("add", "remove"):
-            grp_name = shared_ldap.extract_id_from_dn(result[0].entry_dn)
-            changes = last_comment["body"].split("\n")
-            batch_process_ownership_changes(grp_name, changes)
-            post_owners_of_group_as_comment(result[0].entry_dn)
-            return True
+            shared_ldap.reporter_is_group_owner(result[0].owner.values) and
+            keyword in ("add", "remove")):
+        grp_name = shared_ldap.extract_id_from_dn(result[0].entry_dn)
+        changes = last_comment["body"].split("\n")
+        batch_process_ownership_changes(grp_name, changes)
+        post_owners_of_group_as_comment(result[0].entry_dn)
+        return True
 
     return False
 
 
 def create(ticket_data):
     """Triggered when the issue is created."""
-    cf_group_email_address = custom_fields.get("Group Email Address")
+    cf_group_email_address = custom_fields.get(GROUP_EMAIL_ADDRESS)
     group_email_address = shared_sd.get_field(
         ticket_data, cf_group_email_address).strip().lower()
     group_email_address, result = shared_ldap.find_group(
@@ -97,13 +99,13 @@ def create(ticket_data):
         shared_sd.post_comment(
             "Sorry but the group's email address can't be found in Linaro "
             "Login.", True)
-        shared_sd.resolve_ticket("Won't Do")
+        shared_sd.resolve_ticket(WONT_DO)
         return
     if len(result) != 1:
         shared_sd.post_comment(
             "Sorry but, somehow, the group's email address appears more than "
             "once in Linaro Login.", True)
-        shared_sd.resolve_ticket("Won't Do")
+        shared_sd.resolve_ticket(WONT_DO)
         return
     # See if the bot owns this group
     owners = result[0].owner.values
@@ -178,7 +180,7 @@ def transition(_, status_to, ticket_data):
     status can only be reached from Open or Needs Approval.
     """
     if status_to == "In Progress":
-        cf_group_email_address = custom_fields.get("Group Email Address")
+        cf_group_email_address = custom_fields.get(GROUP_EMAIL_ADDRESS)
         group_email_address = shared_sd.get_field(
             ticket_data, cf_group_email_address).strip().lower()
         group_email_address, result = shared_ldap.find_group(
@@ -232,35 +234,22 @@ def batch_process_ownership_changes(
     change_made = False
 
     # We need a list of current owners to sanity check the request.
-    _, result = shared_ldap.find_group(group_cn, ["owner"])
-    if len(result) == 1:
-        owners = result[0].owner.values
-    else:
-        owners = []
-
+    owners = get_group_owners(group_cn)
     response = ""
-
-    if auto:
-        if change_to_make == "Added":
-            keyword = "add"
-        elif change_to_make == "Removed":
-            keyword = "remove"
-        else:
-            keyword = "auto"
-    else:
-        keyword = change_to_make
+    keyword = determine_change_keyword(auto, change_to_make)
 
     for change in batch:
-        if change != "":
-            local_change, got_error, response = process_change(
-                auto, keyword, change, owners, group_cn, response)
-            if got_error:
-                break
-            change_made = change_made or local_change
-        else:
+        if change == "":
             # Stop on a blank line so we don't run into signature blocks on
             # email replies ...
             break
+
+        email_address, keyword = parse_change_line(auto, change, keyword)
+        local_change, got_error, response = process_change(
+            keyword, email_address, owners, group_cn, response)
+        if got_error:
+            break
+        change_made = change_made or local_change
 
     if change_made:
         linaro_shared.trigger_google_sync()
@@ -272,9 +261,47 @@ def batch_process_ownership_changes(
     if response != "":
         shared_sd.post_comment(response, True)
 
+def determine_change_keyword(auto, change_to_make):
+    """ Standardise the keywords being used for the changes. """
+    if auto:
+        if change_to_make == "Added":
+            keyword = "add"
+        elif change_to_make == "Removed":
+            keyword = "remove"
+        else:
+            keyword = "auto"
+    else:
+        keyword = change_to_make
+    return keyword
 
-def process_change(auto, keyword, change, owners, group_cn, response):
+
+def get_group_owners(group_cn):
+    """ Consistently return a list of owners. """
+    _, result = shared_ldap.find_group(group_cn, ["owner"])
+    if len(result) == 1:
+        owners = result[0].owner.values
+    else:
+        owners = []
+    return owners
+
+
+def process_change(keyword, email_address, owners, group_cn, response):
     """ Process the membership change specified. """
+    email_address = linaro_shared.cleanup_if_markdown(email_address)
+    result = shared_ldap.find_single_object_from_email(email_address)
+    if result is None:
+        response += (
+            "Couldn't find an entry on Linaro Login with an email "
+            "address of '%s'.\r\n" % email_address
+        )
+        return False, True, response
+
+    return process_keyword(
+        keyword, result, owners, email_address, group_cn, response)
+
+
+def parse_change_line(auto, change, keyword):
+    """ Extract the email address and optionally keyword from the line. """
     if auto:
         # Should just be an email address with nothing else on that
         # line.
@@ -287,19 +314,7 @@ def process_change(auto, keyword, change, owners, group_cn, response):
         # Split the line on spaces and treat the second "word" as the
         # email address.
         email_address = change.split()[1].lower()
-
-    email_address = linaro_shared.cleanup_if_markdown(email_address)
-
-    result = shared_ldap.find_single_object_from_email(email_address)
-    if result is None:
-        response += (
-            "Couldn't find an entry on Linaro Login with an email "
-            "address of '%s'.\r\n" % email_address
-        )
-        return False, True, response
-
-    return process_keyword(
-        keyword, result, owners, email_address, group_cn, response)
+    return email_address, keyword
 
 
 def process_keyword(keyword, result, owners, email_address, group_cn, response):
@@ -352,24 +367,27 @@ def post_owners_of_group_as_comment(group_full_dn):
     if len(result) == 1 and result[0].owner.values != []:
         response = "Here are the owners for the group:\r\n"
         for owner in result[0].owner.values:
-            this_owner = shared_ldap.get_object(
-                owner,
-                ['displayName', 'mail', 'givenName', 'sn'])
-            if this_owner.displayName.value is not None:
-                display_name = this_owner.displayName.value
-            else:
-                if this_owner.sn.value is not None:
-                    if this_owner.givenName.value is not None:
-                        display_name = "%s %s" % (
-                            this_owner.givenName.value,
-                            this_owner.sn.value)
-                    else:
-                        display_name = this_owner.sn.value
-                else:
-                    display_name = this_owner.mail.value
-
-            response += "* [%s|mailto:%s]\r\n" % (
-                display_name, this_owner.mail.value)
+            response += "* [%s|mailto:%s]\r\n" % owner_and_display_name(owner)
     else:
         response = "There are no owners for the group."
     shared_sd.post_comment(response, True)
+
+def owner_and_display_name(owner):
+    """ Calculate the owner's email address and display name. """
+    this_owner = shared_ldap.get_object(
+        owner,
+        ['displayName', 'mail', 'givenName', 'sn'])
+    if this_owner.displayName.value is not None:
+        display_name = this_owner.displayName.value
+    else:
+        if this_owner.sn.value is not None:
+            if this_owner.givenName.value is not None:
+                display_name = "%s %s" % (
+                    this_owner.givenName.value,
+                    this_owner.sn.value)
+            else:
+                display_name = this_owner.sn.value
+        else:
+            display_name = this_owner.mail.value
+
+    return (display_name, this_owner.mail.value)
