@@ -120,14 +120,14 @@ def create_openstack_ticket(ticket_data):
         "serviceDeskId": service_desk_id,
         "requestTypeId": request_type_id,
         "requestFieldValues": {
-            "customfield_%s" % cf_devcloud_project_size: value_devcloud_project_size,
-            "customfield_%s" % cf_devcloud_public_ips: value_devcloud_public_ips,
-            "customfield_%s" % cf_devcloud_duration: value_devcloud_duration
+            cf_devcloud_project_size: value_devcloud_project_size,
+            cf_devcloud_public_ips: value_devcloud_public_ips,
+            cf_devcloud_duration: value_devcloud_duration
         },
         "raiseOnBehalfOf": email_address
     }
     if value_devcloud_special_request is not None:
-        request["requestFieldValues"]["customfield_%s" % cf_devcloud_special_request] = \
+        request["requestFieldValues"][cf_devcloud_special_request] = \
             value_devcloud_special_request
     shared_sd.create_request(request)
 
