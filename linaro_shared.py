@@ -17,6 +17,9 @@ import shared.shared_sd as shared_sd
 import shared.shared_vault as shared_vault
 
 
+MAILTO = "mailto:"
+
+
 def pem_path():
     """ Work out where the PEM file is located. """
     # Start by assuming that the PEM is in the rt_handlers folder
@@ -113,12 +116,12 @@ def cleanup_if_markdown(email_address):
         return email_address
     # Make sure the second part is a mailto:
     part2 = parts[1]
-    if (len(part2) <= len("mailto:") or
-            part2[:len("mailto:")] != "mailto:"):
+    if (len(part2) <= len(MAILTO) or
+            part2[:len(MAILTO)] != MAILTO):
         return email_address
 
     # Remove the trailing ] and return the email address
-    return part2[len("mailto:"):-1]
+    return part2[len(MAILTO):-1]
 
 
 def get_exec_from_dn(ldap_entry_dn):
@@ -150,6 +153,47 @@ def get_exec_from_dn(ldap_entry_dn):
             # The intermediate manager is leaving.
             searching = False
     return None
+
+
+def get_director(dept_team):
+    """ For a given dept/team, find the director. """
+    # If there isn't a | in the team name, duplicate the team name with a | in
+    # order to match against LDAP.
+    if "|" not in dept_team:
+        dept_team = "%s|%s" % (dept_team, dept_team)
+    # LDAP doesn't allow brackets in search filters so we have to replace them.
+    dept_team = dept_team.replace("(", "\\28")
+    dept_team = dept_team.replace(")", "\\29")
+    # Find someone with the specified dept_team combo.
+    result = shared_ldap.find_matching_objects(
+        "(departmentNumber=%s)" % dept_team,
+        ['manager', 'title', 'mail'],
+        base="ou=staff,ou=accounts,dc=linaro,dc=org")
+    # That gets us a list but we only work on the first entry ...
+    result = result[0]
+    # Now walk up the manager attribute until we get to a Director.
+    while True:
+        if result == []:
+            return None
+
+        # Just work off the first result returned and we'll iterate ...
+        title = result.title.value
+        if title is not None:
+            title = title.lower()
+
+        # Nasty hack to cope with Landing Teams ...
+        if "director" in title or title == "vp developer services":
+            return result.mail.value
+
+        manager = result.manager.value
+        if manager is None:
+            # We've run out of staff structure
+            return None
+
+        # Walk up the tree
+        result = shared_ldap.get_object(manager, ['manager', 'title', 'mail'])
+        # ... and loop
+
 
 def make_password():
     """
