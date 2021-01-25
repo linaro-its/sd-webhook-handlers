@@ -13,7 +13,7 @@ SAVE_TICKET_DATA = False
 
 def comment(ticket_data):
     """ Comment handler """
-    _, keyword = shared_sd.central_comment_handler([], ["help", "retry"])
+    last_comment, keyword = shared_sd.central_comment_handler([], ["help", "retry"])
 
     if keyword == "help":
         shared_sd.post_comment("All bot commands must be internal comments and the first "
@@ -24,7 +24,8 @@ def comment(ticket_data):
                                False)
     elif keyword == "retry":
         create(ticket_data)
-
+    elif last_comment is not None and last_comment['public']:
+        shared_sd.deassign_ticket_if_appropriate(comment)
 
 def create(ticket_data):
     """ Create handler. """
