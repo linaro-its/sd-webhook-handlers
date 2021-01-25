@@ -16,6 +16,8 @@ CAPABILITIES = [
     "CREATE"
 ]
 
+WONT_DO = "Won't Do"
+
 def comment(ticket_data):
     """ Comment handler """
     last_comment, keyword = shared_sd.central_comment_handler(
@@ -32,7 +34,7 @@ def comment(ticket_data):
     elif keyword == "retry":
         create(ticket_data)
     elif last_comment is not None and last_comment['public']:
-        shared_sd.resolve_ticket()
+        shared_sd.deassign_ticket_if_appropriate(comment)
 
 def create(ticket_data):
     """ Ticket creation handler. """
@@ -112,7 +114,7 @@ def ok_to_proceed(email_address):
             "already being used by %s" % check
         )
         shared_sd.post_comment(response, True)
-        shared_sd.resolve_ticket("Won't Do")
+        shared_sd.resolve_ticket(WONT_DO)
         return False
 
     check = shared_ldap.find_from_attribute("passwordSelfResetBackupMail", email_address)
@@ -129,7 +131,7 @@ def ok_to_proceed(email_address):
             "account associated with the email address (%s)" % dup_email
         )
         shared_sd.post_comment(response, True)
-        shared_sd.resolve_ticket("Won't Do")
+        shared_sd.resolve_ticket(WONT_DO)
         return False
 
     org_unit = shared_ldap.find_best_ou_for_email(email_address)
@@ -138,7 +140,7 @@ def ok_to_proceed(email_address):
             "Cannot fulfil this request because the email address is "
             "reserved for Linaro staff.",
             True)
-        shared_sd.resolve_ticket("Won't Do")
+        shared_sd.resolve_ticket(WONT_DO)
         return False
 
     # Who is asking for this account? If staff, they can create any account.
@@ -149,21 +151,21 @@ def ok_to_proceed(email_address):
             shared_sd.post_comment(
                 "Only Linaro staff and Linaro Members can create additional accounts.",
                 True)
-            shared_sd.resolve_ticket("Won't Do")
+            shared_sd.resolve_ticket(WONT_DO)
             return False
         if reporter_ou != org_unit:
             shared_sd.post_comment(
                 "Cannot fulfil this request because you can "
                 "only create accounts/contacts for your own organisation.",
                 True)
-            shared_sd.resolve_ticket("Won't Do")
+            shared_sd.resolve_ticket(WONT_DO)
             return False
 
     return True
 
 def send_new_account_email(first_name, surname, email_address, account_dn):
     """ Send the new account email. """
-    uid = account_dn.split("=", 1)[1].split(",", 1)[0]
+    uid = shared_ldap.extract_id_from_dn(account_dn)
     # Read in the template email.
     file_dir = os.path.dirname(os.path.abspath(__file__))
     with open("%s/create_external_user_email.txt" % file_dir, "r") as email_file:
