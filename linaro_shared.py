@@ -5,94 +5,109 @@ to be included in sd-webhook-framework.
 
 import base64
 import hashlib
-import os
-import pwd
+import io
 import random
-import stat
-import subprocess
-import traceback
+import select
 
+import paramiko
 import shared.shared_ldap as shared_ldap
 import shared.shared_sd as shared_sd
 import shared.shared_vault as shared_vault
 
-
 MAILTO = "mailto:"
 
+HOST_KEYS = {
+    "login-us-east-1.linaro.org": (
+        "AAAAB3NzaC1yc2EAAAADAQABAAABAQDb1gxcqZXsmAi6Y7D16VJ/99TRQX03sd1mwMls0k5NBbAmrseGTz221"
+        "qivLZOkfc+fB8SlIIq48AeMumTDDFUcz1TICikJ0c4Vj4Kqdj/shiq/Bc7L9zqnVhb+xw/xculjuHc29Ffdw7"
+        "mlsLN251mABg5MM2lJ99cg7r+bvPbQYvTTz8VxAYrILS4zIlTvKQ3hGCE/qni4PW3D4crvyDnQzF2iLvqocuY"
+        "TkyRA+atYxYZHVEdvuwkGoCtpX4YXGov5VsqoCipEB7soYOAXtHw4gbMOj5JjTaEgjse46eW4E842mlVTxck0"
+        "t6nqooQWigV8QVlMAoTu7PrtdjYnF9L1")
+}
 
-def pem_path():
-    """ Work out where the PEM file is located. """
-    # Start by assuming that the PEM is in the rt_handlers folder
-    script_directory = os.path.dirname(os.path.realpath(__file__))
-    file_location = os.path.join(script_directory, "it-support-bot.pem")
-    # If it isn't there, assume it is going to up a directory. That
-    # will be owned by www-data (running the WSGI process) so will
-    # be writeable if we need to retrieve it from Vault.
-    if not os.path.exists(file_location):
-        script_directory = os.path.dirname(script_directory)
-        file_location = os.path.join(script_directory, "it-support-bot.pem")
-    return file_location
+def ssh(host, user, key, timeout, command):
+    """ Connect to the defined SSH host. """
+    # Start by converting the (private) key into a RSAKey object. Use
+    # StringIO to fake a file ...
+    keyfile = io.StringIO(key)
+    ssh_key = paramiko.RSAKey.from_private_key(keyfile)
+    host_key = paramiko.RSAKey(data=base64.b64decode(HOST_KEYS[host]))
+    client = paramiko.SSHClient()
+    client.get_host_keys().add(host, "ssh-rsa", host_key)
+    print("Connecting to %s" % host)
+    client.connect(host, username=user, pkey=ssh_key, allow_agent=False, look_for_keys=False)
+    stdout, result_code = exec_command(client, command, timeout)
+    client.close()
+    return (stdout, result_code)
+
+def exec_command(ssh_client, command, timeout):
+    """ Run a command over SSH and return the response """
+    # https://stackoverflow.com/a/32758464/1233830
+    stdin, stdout, stderr = ssh_client.exec_command(command)
+    # get the shared channel for stdout/stderr/stdin
+    channel = stdout.channel
+    # we do not need stdin.
+    stdin.close()
+    # indicate that we're not going to write to that channel anymore
+    channel.shutdown_write()
+    # read stdout/stderr in order to prevent read block hangs
+    stdout_chunks = []
+    stdout_chunks.append(stdout.channel.recv(len(channel.in_buffer)))
+    # chunked read to prevent stalls
+    while not channel.closed or channel.recv_ready() or channel.recv_stderr_ready():
+        # stop if channel was closed prematurely
+        got_chunk = False
+        readq, _, _ = select.select([stdout.channel], [], [], timeout)
+        for chan in readq:
+            if chan.recv_ready():
+                stdout_chunks.append(stdout.channel.recv(len(chan.in_buffer)))
+                got_chunk = True
+            if chan.recv_stderr_ready():
+                # make sure to read stderr to prevent stall
+                stderr.channel.recv_stderr(len(chan.in_stderr_buffer))
+                got_chunk = True
+        #
+        # 1) make sure that there are at least 2 cycles with no data in the input buffers in
+        #    order to not exit too early (i.e. cat on a >200k file).
+        # 2) if no data arrived in the last loop, check if we already received the exit code
+        # 3) check if input buffers are empty
+        # 4) exit the loop
+        #
+        if not got_chunk \
+            and stdout.channel.exit_status_ready() \
+            and not stderr.channel.recv_stderr_ready() \
+            and not stdout.channel.recv_ready():
+            # indicate that we're not going to read from this channel anymore
+            stdout.channel.shutdown_read()
+            # close the channel
+            stdout.channel.close()
+            break    # exit as remote side is finished and our bufferes are empty
+
+    # close all the pseudofiles
+    stdout.close()
+    stderr.close()
+
+    return (b''.join(stdout_chunks).decode('utf-8'), stdout.channel.recv_exit_status())
 
 
 def trigger_google_sync(level=""):
     """Connect to Linaro Login over SSH to trigger GCDS."""
-    if not check_pem():
-        return
-    try:
-        process = subprocess.Popen([
-            'ssh',
-            '-T',
-            '-i%s' % pem_path(),
-            'it-support-bot@login-us-east-1.linaro.org',
-            level], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        stdoutdata, stderrdata = process.communicate()
-        # process returns bytes so we need to convert to strings
-        stdoutdata = stdoutdata.decode("utf-8")
-        stderrdata = stderrdata.decode("utf-8")
-        if stdoutdata == "" and stderrdata == "":
-            shared_sd.post_comment(
-                "Synchronisation to Google triggered. It may take up to 15 "
-                "minutes before the changes are visible on Google.", True)
-        else:
-            if stdoutdata != "":
-                shared_sd.post_comment(
-                    "GCDS stdout = '%s'" %
-                    stdoutdata, False)
-            if stderrdata != "":
-                shared_sd.post_comment(
-                    "GCDS stderr = '%s'" %
-                    stderrdata, False)
-    # pylint: disable=broad-except
-    except Exception as _:
-        shared_sd.post_comment(
-            "Got error while triggering GCDS: %s" % traceback.format_exc(),
-            False)
+    pem = shared_vault.get_secret("secret/misc/it-support-bot.pem")
+    stdout_data, status_code = ssh("login-us-east-1.linaro.org", "it-support-bot", pem, 100, level)
 
+    print(status_code)
+    print(stdout_data)
 
-def check_pem():
-    """
-    Make sure that the pem file is owned correctly and has the correct file
-    permissions.
-    """
-    pem_location = pem_path()
-    # If the PEM file doesn't exist, fetch it from the Vault and save it
-    if not os.path.exists(pem_location):
-        pem = shared_vault.get_secret("secret/misc/it-support-bot.pem")
-        with open(pem_location, "w") as pem_file:
-            pem_file.write(pem)
-        os.chmod(pem_location, stat.S_IREAD | stat.S_IWRITE)
-    result = os.stat(pem_location)
-    # These shouldn't fail if we've just created the file but
-    # may if the file was put in place through other means.
-    if stat.S_IMODE(result.st_mode) != 384:  # 0600 octal
+    if status_code == 0:
         shared_sd.post_comment(
-            "BOT PEM file has incorrect permissions.", False)
-        return False
-    if pwd.getpwuid(result.st_uid).pw_name != "www-data":
+            "Synchronisation to Google triggered. It may take up to 15 "
+            "minutes before the changes are visible on Google.", True)
+    elif stdout_data == "":
         shared_sd.post_comment(
-            "BOT PEM file has incorrect owner.", False)
-        return False
-    return True
+            "Got non-zero status code from trigggering GCDS.", False)
+    else:
+        shared_sd.post_comment(
+            "Output returned from triggering GCDS:\r\n%s" % stdout_data, False)
 
 
 def cleanup_if_markdown(email_address):
