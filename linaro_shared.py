@@ -34,11 +34,11 @@ def ssh(host, user, key, timeout, command):
     host_key = paramiko.RSAKey(data=base64.b64decode(HOST_KEYS[host]))
     client = paramiko.SSHClient()
     client.get_host_keys().add(host, "ssh-rsa", host_key)
-    print("Connecting to %s" % host)
+    print("Connecting to %s to send command '%s'" % (host, command))
     client.connect(host, username=user, pkey=ssh_key, allow_agent=False, look_for_keys=False)
-    stdout, result_code = exec_command(client, command, timeout)
+    stdout, stderr, result_code = exec_command(client, command, timeout)
     client.close()
-    return (stdout, result_code)
+    return (stdout, stderr, result_code)
 
 def exec_command(ssh_client, command, timeout):
     """ Run a command over SSH and return the response """
@@ -53,6 +53,8 @@ def exec_command(ssh_client, command, timeout):
     # read stdout/stderr in order to prevent read block hangs
     stdout_chunks = []
     stdout_chunks.append(stdout.channel.recv(len(channel.in_buffer)))
+    stderr_chunks = []
+    stderr_chunks.append(stderr.channel.recv(len(channel.in_buffer)))
     # chunked read to prevent stalls
     while not channel.closed or channel.recv_ready() or channel.recv_stderr_ready():
         # stop if channel was closed prematurely
@@ -64,7 +66,7 @@ def exec_command(ssh_client, command, timeout):
                 got_chunk = True
             if chan.recv_stderr_ready():
                 # make sure to read stderr to prevent stall
-                stderr.channel.recv_stderr(len(chan.in_stderr_buffer))
+                stderr_chunks.append(stderr.channel.recv_stderr(len(chan.in_stderr_buffer)))
                 got_chunk = True
         #
         # 1) make sure that there are at least 2 cycles with no data in the input buffers in
@@ -87,27 +89,33 @@ def exec_command(ssh_client, command, timeout):
     stdout.close()
     stderr.close()
 
-    return (b''.join(stdout_chunks).decode('utf-8'), stdout.channel.recv_exit_status())
+    print("SSH status code:", stdout.channel.recv_exit_status())
+    print("stdout:", b''.join(stdout_chunks).decode('utf-8'))
+    print("stderr:", b''.join(stderr_chunks).decode('utf-8'))
+
+    return (
+        b''.join(stdout_chunks).decode('utf-8'),
+        b''.join(stderr_chunks).decode('utf-8'),
+        stdout.channel.recv_exit_status()
+    )
 
 
 def trigger_google_sync(level=""):
     """Connect to Linaro Login over SSH to trigger GCDS."""
     pem = shared_vault.get_secret("secret/misc/it-support-bot.pem")
-    stdout_data, status_code = ssh("login-us-east-1.linaro.org", "it-support-bot", pem, 100, level)
-
-    print(status_code)
-    print(stdout_data)
-
+    stdout_data, stderr_data, status_code = ssh(
+        "login-us-east-1.linaro.org", "it-support-bot", pem, 100, level)
     if status_code == 0:
         shared_sd.post_comment(
             "Synchronisation to Google triggered. It may take up to 15 "
             "minutes before the changes are visible on Google.", True)
-    elif stdout_data == "":
-        shared_sd.post_comment(
-            "Got non-zero status code from trigggering GCDS.", False)
     else:
         shared_sd.post_comment(
-            "Output returned from triggering GCDS:\r\n%s" % stdout_data, False)
+            "Got non-zero status code from trigggering GCDS.", False)
+        if stdout_data != "":
+            shared_sd.post_comment("stdout:\r\n%s" % stdout_data, False)
+        if stderr_data != "":
+            shared_sd.post_comment("stderr:\r\n%s" % stderr_data, False)
 
 
 def cleanup_if_markdown(email_address):
