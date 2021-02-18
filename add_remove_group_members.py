@@ -8,7 +8,8 @@ import linaro_shared
 
 CAPABILITIES = [
     "COMMENT",
-    "CREATE"
+    "CREATE",
+    "TRANSITION"
 ]
 
 IT_BOT = (
@@ -37,10 +38,11 @@ def comment(ticket_data):
         return
 
     current_status = shared_sd.get_current_status()
-    if (last_comment['public'] and
-            last_comment['author']['name'] != shared.globals.CONFIGURATION["bot_name"] and
-            current_status != "Resolved"):
-        if keyword is None or not process_public_comment(ticket_data, last_comment, keyword):
+    if last_comment["public"]:
+        comment_author = shared_sd.get_user_field(last_comment["author"], "name")
+        if (comment_author != shared.globals.CONFIGURATION["bot_name"] and
+            current_status != "Resolved" and
+            (keyword is None or not process_public_comment(ticket_data, last_comment, keyword))):
             shared_sd.post_comment(
                 "Current status is %s" % current_status,
                 False)
@@ -63,7 +65,7 @@ def process_public_comment(ticket_data, last_comment, keyword):
     if not group_sanity_check(result):
         return True
     if "owner" in result[0] and shared_ldap.reporter_is_group_owner(
-            result[0].owners.values):
+            result[0].owner.values):
         if keyword in ("add", "remove"):
             distinguished = result[0].entry_dn
             grp_name = shared_ldap.extract_id_from_dn(distinguished)
@@ -119,19 +121,18 @@ def transition(status_to, ticket_data):
     status can only be reached from Open or Needs Approval.
     """
     if status_to == "In Progress":
-        _, result = get_group_details(ticket_data)
-        action_group_membership_change(result[0], ticket_data)
+        email_address, result = get_group_details(ticket_data)
+        action_group_membership_change(email_address, result[0], ticket_data)
 
-def action_group_membership_change(group_obj, ticket_data):
+def action_group_membership_change(email_address, group_obj, ticket_data):
     """ Apply the membership changes from the ticket """
-    grp_name = shared_ldap.extract_id_from_dn(group_obj)
     cf_group_member_email_addresses = custom_fields.get(
         "Group member email addresses")
     changes = shared_sd.get_field(ticket_data, cf_group_member_email_addresses)
     changes = linaro_shared.response_split(changes)
     cf_add_remove = custom_fields.get("Added / Removed")
-    change_to_make = shared_sd.get_field(ticket_data, cf_add_remove)
-    batch_process_membership_changes(grp_name, changes, True, change_to_make)
+    change_to_make = shared_sd.get_field(ticket_data, cf_add_remove)["value"]
+    batch_process_membership_changes(email_address, changes, True, change_to_make)
     # Need to check if the requester is a group owner ...
     if "owner" in group_obj and shared_ldap.reporter_is_group_owner(
             group_obj.owner.values):
@@ -152,7 +153,7 @@ def action_group_membership_change(group_obj, ticket_data):
         shared_sd.resolve_ticket()
 
 def batch_process_membership_changes(
-        group_cn,
+        email_address,
         batch,
         auto=False,
         change_to_make=None):
@@ -169,16 +170,19 @@ def batch_process_membership_changes(
 
     # We need a list of current members to sanity check the request.
     _, result = shared_ldap.find_group(
-        "cn=%s,ou=mailing,ou=groups,dc=linaro,dc=org" % group_cn, ["uniqueMember"])
+        email_address, ["uniqueMember"])
     if len(result) == 1 and "uniqueMember" in result[0]:
         members = result[0].uniqueMember.values
     else:
         members = []
 
+    group_cn = shared_ldap.extract_id_from_dn(result[0].entry_dn)
     response = ""
     keyword = determine_auto_keyword(auto, change_to_make)
 
     for change in batch:
+        # When submitting a comment via the portal, blank lines get inserted
+        # so we just ignore them.
         if change != "":
             if auto:
                 # Should just be an email address with nothing else on that
@@ -239,15 +243,11 @@ def batch_process_membership_changes(
                     change_made = True
                 else:
                     response += (
-                        "%s is not a member of the group so it cannot be "
+                        "%s is not a member of the group so cannot be "
                         "removed as one.\r\n" % email_address)
             else:
                 response += (
                     "%s is not recognised as 'add' or 'remove'.\r\n" % keyword)
-        else:
-            # Stop on a blank line so we don't run into signature blocks on
-            # email replies ...
-            break
 
     if change_made:
         linaro_shared.trigger_google_sync()
