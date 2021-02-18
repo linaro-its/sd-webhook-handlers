@@ -37,20 +37,15 @@ def comment(ticket_data):
         create(ticket_data)
         return
 
-    current_status = shared_sd.get_current_status()
-    if last_comment["public"]:
-        comment_author = shared_sd.get_user_field(last_comment["author"], "name")
-        if (comment_author != shared.globals.CONFIGURATION["bot_name"] and
-            current_status != "Resolved" and
-            (keyword is None or not process_public_comment(ticket_data, last_comment, keyword))):
-            shared_sd.post_comment(
-                "Current status is %s" % current_status,
-                False)
-            shared_sd.post_comment(
-                "Your comment has not been recognised as an instruction to the"
-                " bot so the ticket will be left for IT Services to review.",
-                True)
-            shared_sd.deassign_ticket_if_appropriate(last_comment)
+    if (last_comment['public'] and
+          not shared_sd.user_is_bot(last_comment['author']) and
+          shared_sd.get_current_status() != "Resolved" and
+          (keyword is None or not process_public_comment(ticket_data, last_comment, keyword))):
+        shared_sd.post_comment(
+            "Your comment has not been recognised as an instruction to the"
+            " bot so the ticket will be left for IT Services to review.",
+            True)
+        shared_sd.deassign_ticket_if_appropriate(last_comment)
 
 def process_public_comment(ticket_data, last_comment, keyword):
     """ Logic to process a public comment """
