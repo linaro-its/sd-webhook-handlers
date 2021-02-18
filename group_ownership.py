@@ -195,7 +195,7 @@ def action_change(ticket_data, group_owners):
     ownerchanges = shared_sd.get_field(ticket_data, cf_group_owners)
     changes = ownerchanges.split("\r\n")
     cf_added_removed = custom_fields.get("Added / Removed")
-    action_value = shared_sd.get_field(ticket_data, cf_added_removed)
+    action_value = shared_sd.get_field(ticket_data, cf_added_removed).value
     if action_value is None:
         change_to_make = ""
     else:
@@ -342,7 +342,7 @@ def process_keyword(keyword, result, owners, email_address, group_cn, response):
             change_made = True
         else:
             response += (
-                "%s is not an owner of the group so it cannot "
+                "%s is not an owner of the group so cannot "
                 "be removed as one.\r\n" % email_address
             )
     else:
