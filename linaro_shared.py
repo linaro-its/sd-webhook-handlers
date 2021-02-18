@@ -7,6 +7,7 @@ import base64
 import hashlib
 import io
 import random
+import re
 import select
 
 import paramiko
@@ -234,3 +235,15 @@ def make_password():
     md5_hash = hashlib.md5()
     md5_hash.update(password.encode('utf-8'))
     return password, "{MD5}%s" % base64.encodebytes(md5_hash.digest()).decode('utf-8').strip()
+
+
+def response_split(response):
+    """
+    Given a single or multi-line response, optionally with comma-separation,
+    split into single responses.
+    """
+
+    # We use a Unicode regex string to allow us to include \xa0 which is &nbsp,
+    # which can happen when the issue is edited by an agent.
+    # Note that it is possible for responses to be empty, e.g. [u'']
+    return re.split(u"[\r\n, \xa0]+", response)
