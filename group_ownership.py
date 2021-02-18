@@ -29,7 +29,6 @@ def comment(ticket_data):
              "* retry to ask the bot to process the request again after "
              "issues have been resolved."), False)
     elif keyword == "retry":
-        shared_sd.transition_request_to("Open")
         create(ticket_data)
     elif (last_comment['public'] and
           not shared_sd.user_is_bot(last_comment['author']) and

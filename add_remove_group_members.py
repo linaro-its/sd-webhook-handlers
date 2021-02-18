@@ -33,7 +33,6 @@ def comment(ticket_data):
         return
 
     if keyword == "retry":
-        shared_sd.transition_request_to("Open")
         create(ticket_data)
         return
 
