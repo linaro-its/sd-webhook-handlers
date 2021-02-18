@@ -174,7 +174,7 @@ def create(ticket_data):
         shared_sd.transition_request_to("Needs approval")
 
 
-def transition(_, status_to, ticket_data):
+def transition(status_to, ticket_data):
     """
     If the status is "In Progress", trigger the membership change. This
     status can only be reached from Open or Needs Approval.

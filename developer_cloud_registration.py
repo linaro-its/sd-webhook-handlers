@@ -132,14 +132,13 @@ def create_openstack_ticket(ticket_data):
     shared_sd.create_request(request)
 
 
-def transition(status_from, status_to, ticket_data):
+def transition(status_to, ticket_data):
     """ Transition handler. """
-    print("Transition from %s to %s" % (status_from, status_to))
+    print("Transition to %s" % status_to)
     # When a DCR issue is created, it must be approved before the
     # automation does anything with the issue. Therefore, we wait
     # for the issue to transition appropriately.
-    if (status_from != "Waiting for approval" or
-            status_to != "Approved"):
+    if status_to != "Approved":
         return
     #
     # Create an account on LDAP for this person.
