@@ -36,9 +36,7 @@ def comment(ticket_data):
         create(ticket_data)
         return
 
-    if (last_comment['public'] and
-          not shared_sd.user_is_bot(last_comment['author']) and
-          shared_sd.get_current_status() != "Resolved" and
+    if (linaro_shared.ok_to_process_public_comment(last_comment) and
           (keyword is None or not process_public_comment(ticket_data, last_comment, keyword))):
         shared_sd.post_comment(
             "Your comment has not been recognised as an instruction to the"
