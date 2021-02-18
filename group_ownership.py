@@ -195,7 +195,7 @@ def action_change(ticket_data, group_owners):
     ownerchanges = shared_sd.get_field(ticket_data, cf_group_owners)
     changes = ownerchanges.split("\r\n")
     cf_added_removed = custom_fields.get("Added / Removed")
-    action_value = shared_sd.get_field(ticket_data, cf_added_removed).value
+    action_value = shared_sd.get_field(ticket_data, cf_added_removed)["value"]
     if action_value is None:
         change_to_make = ""
     else:
