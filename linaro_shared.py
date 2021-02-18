@@ -247,3 +247,16 @@ def response_split(response):
     # which can happen when the issue is edited by an agent.
     # Note that it is possible for responses to be empty, e.g. [u'']
     return re.split(u"[\r\n, \xa0]+", response)
+
+
+def ok_to_process_public_comment(comment):
+    """ Performs common checks to make sure the comment needs to be processed """
+    if (shared_sd.get_current_status() == "Resolved" or
+            not comment['public'] or
+            shared_sd.user_is_bot(comment['author'])):
+        return False
+
+    # Ignore comments made by IT Services since they could be replying to
+    # a comment from a user.
+    commentator = shared_sd.get_user_field(comment["author"], "emailAddress")
+    return not shared_ldap.is_user_in_group("its", commentator)
