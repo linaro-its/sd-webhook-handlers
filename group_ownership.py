@@ -125,7 +125,7 @@ def create(ticket_data):
 
     # Do we have any changes to process? If not, post the current owners to
     # the ticket.
-    cf_group_owners = custom_fields.get("Group Owner(s)")
+    cf_group_owners = custom_fields.get("Group Owners")
     ownerchanges = shared_sd.get_field(ticket_data, cf_group_owners)
     if ownerchanges is None:
         post_owners_of_group_as_comment(result[0].entry_dn)
@@ -239,17 +239,13 @@ def batch_process_ownership_changes(
     keyword = determine_change_keyword(auto, change_to_make)
 
     for change in batch:
-        if change == "":
-            # Stop on a blank line so we don't run into signature blocks on
-            # email replies ...
-            break
-
-        email_address, keyword = parse_change_line(auto, change, keyword)
-        local_change, got_error, response = process_change(
-            keyword, email_address, owners, group_cn, response)
-        if got_error:
-            break
-        change_made = change_made or local_change
+        if change != "":
+            email_address, keyword = parse_change_line(auto, change, keyword)
+            local_change, got_error, response = process_change(
+                keyword, email_address, owners, group_cn, response)
+            if got_error:
+                break
+            change_made = change_made or local_change
 
     if change_made:
         linaro_shared.trigger_google_sync()

@@ -10,7 +10,7 @@ The following fields are used:
 
 * Group Email Address
   * Text Field (single line)
-* Group Owner(s)
+* Group Owners
   * Text Field (multi-line)
   * Not required
 * Added / Removed
