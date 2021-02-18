@@ -191,7 +191,7 @@ def transition(status_to, ticket_data):
 def action_change(ticket_data, group_owners):
     """ Process the ownership changes specified in the field. """
     grp_name = shared_ldap.extract_id_from_dn(group_owners.entry_dn)
-    cf_group_owners = custom_fields.get("Group Owner(s)")
+    cf_group_owners = custom_fields.get("Group Owners")
     ownerchanges = shared_sd.get_field(ticket_data, cf_group_owners)
     changes = ownerchanges.split("\r\n")
     cf_added_removed = custom_fields.get("Added / Removed")
