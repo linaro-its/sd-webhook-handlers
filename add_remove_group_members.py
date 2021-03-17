@@ -16,6 +16,7 @@ IT_BOT = (
     'uid=it.support.bot,ou=mail-contacts-unsynced,'
     'ou=accounts,dc=linaro,dc=org'
 )
+WONT_DO = "Won't Do"
 
 def comment(ticket_data):
     """ Triggered when a comment is posted """
@@ -56,14 +57,14 @@ def process_public_comment(ticket_data, last_comment, keyword):
     # and anything could have happened!
     if not group_sanity_check(result):
         return True
-    if "owner" in result[0] and shared_ldap.reporter_is_group_owner(
-            result[0].owner.values):
-        if keyword in ("add", "remove"):
-            distinguished = result[0].entry_dn
-            grp_name = shared_ldap.extract_id_from_dn(distinguished)
-            changes = last_comment["body"].split("\n")
-            batch_process_membership_changes(grp_name, changes, False)
-            return True
+    if ("owner" in result[0] and
+            shared_ldap.reporter_is_group_owner(result[0].owner.values) and
+            keyword in ("add", "remove")):
+        distinguished = result[0].entry_dn
+        grp_name = shared_ldap.extract_id_from_dn(distinguished)
+        changes = last_comment["body"].split("\n")
+        batch_process_membership_changes(grp_name, changes, False)
+        return True
     return False
 
 def create(ticket_data):
@@ -95,7 +96,7 @@ def create(ticket_data):
         shared_sd.post_comment(
             "Sorry but the membership of this group is maintained"
             " automatically.", True)
-        shared_sd.resolve_ticket("Won't Do")
+        shared_sd.resolve_ticket(WONT_DO)
         return
 
     if shared_ldap.reporter_is_group_owner(group_obj.owner.values):
@@ -170,33 +171,18 @@ def batch_process_membership_changes(
 
     group_cn = shared_ldap.extract_id_from_dn(result[0].entry_dn)
     response = ""
-    keyword = determine_auto_keyword(auto, change_to_make)
 
     for change in batch:
         # When submitting a comment via the portal, blank lines get inserted
         # so we just ignore them.
         if change != "":
-            if auto:
-                # Should just be an email address with nothing else on that
-                # line.
-                email_address = change.strip().lower()
-            else:
-                # Split the line on spaces and treat the second "word" as the
-                # email address.
-                split = change.split()
-                if len(split) > 1:
-                    email_address = change.split()[1].lower()
-                else:
-                    response += (
-                        "\r\nCouldn't find a command at the start of '%s'. "
-                        "*Processing of this request will now stop.*\r\n" %
-                        change)
-                    break
-                # Try to get a keyword from this line of text. Do this after
-                # the splitting to make sure there is a keyword to be had.
-                keyword = "".join(
-                    (char if char.isalpha() else " ") for char in change).\
-                    split()[0].lower()
+            email_address, keyword = evaluate_change(change, auto, change_to_make)
+            if keyword is None:
+                response += (
+                    "\r\nCouldn't find a command at the start of '%s'. "
+                    "*Processing of this request will now stop.*\r\n" %
+                    change)
+                break
 
             result = find_member_change(email_address)
 
@@ -249,7 +235,6 @@ def batch_process_membership_changes(
 
     if response != "":
         shared_sd.post_comment(response, True)
-    return
 
 def get_group_details(ticket_data):
     """ Get the true email address and LDAP object for the specified group """
@@ -265,23 +250,36 @@ def group_sanity_check(ldap_obj):
         shared_sd.post_comment(
             "Sorry but the group's email address can't be found in Linaro"
             " Login.", True)
-        shared_sd.resolve_ticket("Won't Do")
+        shared_sd.resolve_ticket(WONT_DO)
         return False
     if len(ldap_obj) != 1:
         shared_sd.post_comment(
             "Sorry but, somehow, the group's email address appears more than"
             " once in Linaro Login.", True)
-        shared_sd.resolve_ticket("Won't Do")
+        shared_sd.resolve_ticket(WONT_DO)
         return False
     return True
 
-def determine_auto_keyword(auto, change_to_make):
-    """ Return the keyword based on the parameters """
+def evaluate_change(this_change, auto, change_to_make):
+    """ Calculate email address and keyword for this change """
+    email_address = None
+    keyword = None
     if auto:
-        if change_to_make == "Added":
-            return "add"
-        return "remove"
-    return None
+        keyword = "add" if change_to_make == "Added" else "remove"
+        email_address = this_change.strip().lower()
+    else:
+        # Split the line on spaces and treat the second "word" as the
+        # email address.
+        split = this_change.split()
+        if len(split) > 1:
+            email_address = this_change.split()[1].lower()
+            # Try to get a keyword from this line of text. Do this after
+            # the splitting to make sure there is a keyword to be had.
+            keyword = "".join(
+                (char if char.isalpha() else " ") for char in this_change).\
+                split()[0].lower()
+    return email_address, keyword
+
 
 def find_member_change(person):
     """ Get the LDAP object from the email address or UID """
