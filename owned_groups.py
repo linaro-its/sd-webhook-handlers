@@ -8,6 +8,12 @@ CAPABILITIES = [
     "CREATE"
 ]
 
+def group_name(ldap_obj):
+    """ Return the display name or cn """
+    if ldap_obj.displayName.value is None:
+        return ldap_obj.cn.value
+    return ldap_obj.displayName.value
+
 
 def create(ticket_data):
     """ Triggered when the issue is created """
@@ -16,7 +22,7 @@ def create(ticket_data):
     # Need to get all of the groups, with their owners
     all_groups = shared_ldap.find_matching_objects(
         "(objectClass=groupOfUniqueNames)",
-        ["owner", "displayName"]
+        ["owner", "displayName", "cn"]
     )
     owned_groups = []
     for group in all_groups:
@@ -31,7 +37,7 @@ def create(ticket_data):
         shared_sd.resolve_ticket()
         return
 
-    owned_groups = sorted(owned_groups, key=lambda x: x.displayName.value)
+    owned_groups = sorted(owned_groups, key=group_name)
     response = (
         "Below are the groups you can manage.\n\n"
         "There are automated Service Desk requests for [changing the "
@@ -41,6 +47,6 @@ def create(ticket_data):
         "/3/create/129].\n\n"
     )
     for group in owned_groups:
-        response += "* %s\n" % group.displayName.value
+        response += "* %s\n" % group_name(group)
     shared_sd.post_comment(response, True)
     shared_sd.resolve_ticket()
