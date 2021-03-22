@@ -50,9 +50,9 @@ def create(ticket_data):
         "Below are the groups you can manage.\n\n"
         "There are automated Service Desk requests for [changing the "
         "membership of a group|https://servicedesk.linaro.org/servicedesk"
-        "/customer/portal/3/create/121] and [changing the owners of a "
+        "/customer/portal/3/create/139] and [changing the owners of a "
         "group|https://servicedesk.linaro.org/servicedesk/customer/portal"
-        "/3/create/129].\n\n"
+        "/3/create/140].\n\n"
     )
     for group in owned_groups:
         empty = check_if_group_has_members(group)
