@@ -15,6 +15,13 @@ def group_name(ldap_obj):
     return ldap_obj.displayName.value
 
 
+def group_name_lower(ldap_obj):
+    """ Return the LOWER CASE display name or cn """
+    if ldap_obj.displayName.value is None:
+        return ldap_obj.cn.value.lower()
+    return ldap_obj.displayName.value.lower()
+
+
 def create(ticket_data):
     """ Triggered when the issue is created """
     shared_sd.assign_issue_to(shared.globals.CONFIGURATION["bot_name"])
@@ -38,7 +45,7 @@ def create(ticket_data):
         shared_sd.resolve_ticket()
         return
 
-    owned_groups = sorted(owned_groups, key=group_name)
+    owned_groups = sorted(owned_groups, key=group_name_lower)
     response = (
         "Below are the groups you can manage.\n\n"
         "There are automated Service Desk requests for [changing the "
