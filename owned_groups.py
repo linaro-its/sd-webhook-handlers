@@ -1,8 +1,8 @@
 """ Handler for the request to list the groups owned by the requester """
 
+import shared.globals
 import shared.shared_ldap as shared_ldap
 import shared.shared_sd as shared_sd
-
 
 CAPABILITIES = [
     "CREATE"
@@ -17,6 +17,7 @@ def group_name(ldap_obj):
 
 def create(ticket_data):
     """ Triggered when the issue is created """
+    shared_sd.assign_issue_to(shared.globals.CONFIGURATION["bot_name"])
     # Keep the linter happy
     _ = ticket_data
     # Need to get all of the groups, with their owners
