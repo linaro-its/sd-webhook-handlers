@@ -25,7 +25,7 @@ def comment(ticket_data):
     elif keyword == "retry":
         create(ticket_data)
     elif last_comment is not None and last_comment['public']:
-        shared_sd.deassign_ticket_if_appropriate(comment)
+        shared_sd.deassign_ticket_if_appropriate(last_comment)
 
 def create(ticket_data):
     """ Create handler. """
