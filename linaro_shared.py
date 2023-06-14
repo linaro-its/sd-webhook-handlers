@@ -184,16 +184,19 @@ def get_director(dept_team):
     # If there isn't a | in the team name, duplicate the team name with a | in
     # order to match against LDAP.
     if "|" not in dept_team:
-        dept_team = "%s|%s" % (dept_team, dept_team)
+        dept_team = f"{dept_team}|{dept_team}"
     # LDAP doesn't allow brackets in search filters so we have to replace them.
     dept_team = dept_team.replace("(", "\\28")
     dept_team = dept_team.replace(")", "\\29")
     # Find someone with the specified dept_team combo.
     result = shared_ldap.find_matching_objects(
-        "(departmentNumber=%s)" % dept_team,
+        f"(departmentNumber={dept_team})",
         ['manager', 'title', 'mail'],
         base="ou=staff,ou=accounts,dc=linaro,dc=org")
     # That gets us a list but we only work on the first entry ...
+    if result is None:
+        print(f"get_director: failed to find anyone in department '{dept_team}'")
+        return None
     result = result[0]
     # Now walk up the manager attribute until we get to a Director.
     while True:
