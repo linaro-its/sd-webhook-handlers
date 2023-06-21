@@ -11,6 +11,8 @@ import re
 import select
 
 import paramiko
+import shared.custom_fields as custom_fields
+import shared.globals
 import shared.shared_ldap as shared_ldap
 import shared.shared_sd as shared_sd
 import shared.shared_vault as shared_vault
@@ -263,3 +265,81 @@ def ok_to_process_public_comment(comment):
     # a comment from a user.
     commentator = shared_sd.get_user_field(comment["author"], "emailAddress")
     return not shared_ldap.is_user_in_group("its", commentator)
+
+
+def get_dn_from_account_id(ticket_data, custom_field):
+    """ Get a person's LDAP DN from their Atlassian account ID """
+    person_anonymised = shared_sd.get_field(ticket_data, custom_field)
+    # Find the person in LDAP
+    ldap_dn = None
+    if person_anonymised is not None:
+        account_id = person_anonymised["accountId"]
+        person = shared_sd.find_account_from_id(account_id)
+        if person is not None:
+            person_email = person["emailAddress"]
+            ldap_dn = shared_ldap.find_single_object_from_email(person_email)
+    return ldap_dn
+
+
+def check_approval_assignee_member_engineer(ticket_data):
+    """ Ensure that the ticket has the appropriate approval set up """
+    # Get the details for the specified engineer
+    cf_engineer = custom_fields.get("Assignee/Member Engineer")
+    ldap_dn = get_dn_from_account_id(ticket_data, cf_engineer)
+    if ldap_dn is None:
+        shared_sd.post_comment(
+            "Cannot find this person in Linaro Login", True)
+        return
+
+    ldap_search = shared_ldap.get_object(
+        ldap_dn,
+        ['description', 'departmentNumber', 'o', 'employeeType', 'manager'])
+    if ldap_search is None:
+        shared_sd.post_comment(
+            "Cannot retrieve person's details from Linaro Login", True)
+        return
+    employee_type = ldap_search.employeeType.value
+    if employee_type not in [
+        "Assignee",
+        "Member Engineer",
+        "Affiliate Engineer"
+        ]:
+        shared_sd.post_comment(
+            "This person is not an assignee, Member engineer or Affiliate engineer",
+            True
+        )
+        return
+
+    director = get_director(ldap_search.departmentNumber.value)
+    if director is None:
+        shared_sd.post_comment(
+            "[~philip.colmer@linaro.org] Couldn't find the director for"
+            f" {ldap_search.departmentNumber.value}'",
+            False)
+        return
+
+    # Add the name to the summary if we haven't already
+    summary = shared_sd.get_field(ticket_data, "summary")
+    if summary is not None:
+        name = ldap_search.description.value
+        if not summary.endswith(name):
+            shared_sd.set_summary(f"{summary}: {name}")
+
+    # Get the manager for this person
+    mgr_email = shared_ldap.get_manager_from_dn(ldap_search.manager.value)
+    if mgr_email is None:
+        # Fall back to getting Diane to approve the ticket
+        mgr_email = "diane.cheshire@linaro.org"
+    # If the ticket wasn't created by the manager, get the manager to approve
+    # it.
+    if mgr_email != shared.globals.REPORTER:
+        shared_sd.post_comment(
+            f"As you are not the manager for {ldap_search.description.value}, {mgr_email} "
+            "will be asked to approve or decline your request.",
+            True
+        )
+        cf_approvers = custom_fields.get("Approvers")
+        shared_sd.assign_approvers([mgr_email], cf_approvers)
+        shared_sd.transition_request_to("Needs approval")
+    else:
+        shared_sd.transition_request_to("In Progress")
