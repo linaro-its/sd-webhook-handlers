@@ -13,13 +13,30 @@ import shared.shared_sd as shared_sd
 import linaro_shared
 
 CAPABILITIES = [
+    "COMMENT",
     "CREATE"
 ]
+
+def comment(ticket_data):
+    """ Triggered when a comment is posted """
+    _, keyword = shared_sd.central_comment_handler(
+        [], ["help", "retry"])
+
+    if keyword == "help":
+        shared_sd.post_comment(("All bot commands must be internal comments and the first word/phrase in the comment.\r\n\r\n"
+                               "Valid commands are:\r\n"
+                               "* retry to ask the bot to process the request again after issues have been resolved."), False)
+    elif keyword == "retry":
+        print("modify_staff processing retry keyword & triggering create function")
+        create(ticket_data)
+
 
 def get_affected_person(ticket_data):
     """ Return the email address for the affected person. """
     cf_who_picker = custom_fields.get("Employee/Contractor")
     who = shared_sd.get_field(ticket_data, cf_who_picker)
+    if who is not None and "emailAddress" not in who:
+        who = shared_sd.find_account_from_id(who["accountId"])
     return who
 
 
@@ -36,18 +53,21 @@ def create(ticket_data):
         )
         shared_sd.resolve_ticket(resolution_state="Declined")
         return
-    # Change the ticket summary to include their name
-    shared_sd.set_summary(
-        "%s: %s" % (
-            ticket_data["issue"]["fields"]["summary"],
-            person["displayName"]
-        )
-    )
+
+    # Add the name to the summary if we haven't already
+    summary = shared_sd.get_field(ticket_data, "summary")
+    if summary is not None:
+        name = person["displayName"]
+        if not summary.endswith(name):
+            shared_sd.set_summary(f"{summary}: {name}")
+
     # Is this person changing team? Has a new manager been provided?
     cf_engineering_team = custom_fields.get("Engineering Team")
     cf_reports_to = custom_fields.get("Reports To")
     new_department = shared_sd.get_field(ticket_data, cf_engineering_team)
     reports_to = shared_sd.get_field(ticket_data, cf_reports_to)
+    if reports_to is not None and "emailAddress" not in reports_to:
+        reports_to = shared_sd.find_account_from_id(reports_to["accountId"])
     if new_department is not None and reports_to is None:
         shared_sd.post_comment(
             "WARNING! You are changing the department/team for this "
@@ -59,6 +79,7 @@ def create(ticket_data):
             "provided in this ticket.",
             True
         )
+
     # If a new manager has been provided, add them as a request participant
     new_mgr = None
     if reports_to is not None:
@@ -73,6 +94,7 @@ def create(ticket_data):
                 "new manager." % new_mgr,
                 True
             )
+
     # Create an internal comment for HR that specifies all of the bits that
     # need to be done.
     post_hr_guidance(new_department, reports_to, new_mgr, ticket_data)
@@ -121,6 +143,7 @@ def post_approval_message(mgr_email, exec_email, person):
             )
         cf_approvers = custom_fields.get("Approvers")
         shared_sd.assign_approvers([mgr_email], cf_approvers)
+        shared_sd.transition_request_to("Needs Approval")
     else:
         if exec_email is not None:
             shared_sd.post_comment(
