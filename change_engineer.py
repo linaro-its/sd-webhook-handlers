@@ -57,8 +57,8 @@ def create(ticket_data):
         if new_mgr != shared.globals.REPORTER:
             shared_sd.add_request_participant(new_mgr)
             shared_sd.post_comment(
-                "Adding %s for visibility of this request as the proposed "
-                "new manager." % new_mgr,
+                f"Adding {new_mgr} for visibility of this request as the proposed "
+                "new manager.",
                 True
             )
     # Create an internal comment for HR that specifies all of the bits that
