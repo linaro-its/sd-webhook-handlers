@@ -3,6 +3,8 @@ Some functions shared across the handlers that are too Linaro-specific
 to be included in sd-webhook-framework.
 """
 
+# pylint: disable=no-member, broad-except
+
 import base64
 import hashlib
 import io
@@ -11,11 +13,8 @@ import re
 import select
 
 import paramiko
-import shared.custom_fields as custom_fields
 import shared.globals
-import shared.shared_ldap as shared_ldap
-import shared.shared_sd as shared_sd
-import shared.shared_vault as shared_vault
+from shared import custom_fields, shared_ldap, shared_sd, shared_vault
 
 MAILTO = "mailto:"
 
@@ -37,7 +36,7 @@ def ssh(host, user, key, timeout, command):
     host_key = paramiko.RSAKey(data=base64.b64decode(HOST_KEYS[host]))
     client = paramiko.SSHClient()
     client.get_host_keys().add(host, "ssh-rsa", host_key)
-    print("Connecting to %s to send command '%s'" % (host, command))
+    print(f"Connecting to {host} to send command '{command}'")
     client.connect(host, username=user, pkey=ssh_key, allow_agent=False, look_for_keys=False)
     stdout, stderr, result_code = exec_command(client, command, timeout)
     client.close()
@@ -116,9 +115,9 @@ def trigger_google_sync(level=""):
         shared_sd.post_comment(
             "Got non-zero status code from trigggering GCDS.", False)
         if stdout_data != "":
-            shared_sd.post_comment("stdout:\r\n%s" % stdout_data, False)
+            shared_sd.post_comment(f"stdout:\r\n{stdout_data}", False)
         if stderr_data != "":
-            shared_sd.post_comment("stderr:\r\n%s" % stderr_data, False)
+            shared_sd.post_comment(f"stderr:\r\n{stderr_data}", False)
 
 
 def cleanup_if_markdown(email_address):
@@ -173,6 +172,8 @@ def get_exec_from_dn(ldap_entry_dn):
             ldap_entry_dn = result.manager.value
             if ldap_entry_dn in members:
                 mgr_email = shared_ldap.get_object(result.manager.value, ["mail"])
+                if mgr_email is None:
+                    return None
                 return mgr_email.mail.values[0]
             # otherwise loop to that person
         else:
@@ -202,7 +203,7 @@ def get_director(dept_team):
     result = result[0]
     # Now walk up the manager attribute until we get to a Director.
     while True:
-        if result == []:
+        if result is None or result == []:
             return None
 
         # Just work off the first result returned and we'll iterate ...
@@ -239,7 +240,7 @@ def make_password():
 
     md5_hash = hashlib.md5()
     md5_hash.update(password.encode('utf-8'))
-    return password, "{MD5}%s" % base64.encodebytes(md5_hash.digest()).decode('utf-8').strip()
+    return password, "{MD5}" + base64.encodebytes(md5_hash.digest()).decode('utf-8').strip()
 
 
 def response_split(response):
@@ -251,7 +252,7 @@ def response_split(response):
     # We use a Unicode regex string to allow us to include \xa0 which is &nbsp,
     # which can happen when the issue is edited by an agent.
     # Note that it is possible for responses to be empty, e.g. [u'']
-    return re.split(u"[\r\n, \xa0]+", response)
+    return re.split("[\r\n, \xa0]+", response)
 
 
 def ok_to_process_public_comment(comment):
