@@ -50,7 +50,9 @@ def process_public_comment(ticket_data, last_comment, keyword):
     # Get the definitive email address for the group and the owner(s).
     cf_group_email_address = custom_fields.get(GROUP_EMAIL_ADDRESS)
     group_email_address = shared_sd.get_field(
-        ticket_data, cf_group_email_address).strip().lower()
+        ticket_data, cf_group_email_address)
+    if group_email_address is not None:
+        group_email_address = group_email_address.strip().lower()
     group_email_address, result = shared_ldap.find_group(
         group_email_address, ['owner'])
     # Make sure that the group still exists because this is all asynchronous
@@ -84,12 +86,14 @@ def create(ticket_data):
     """Triggered when the issue is created."""
     cf_group_email_address = custom_fields.get(GROUP_EMAIL_ADDRESS)
     group_email_address = shared_sd.get_field(
-        ticket_data, cf_group_email_address).strip().lower()
+        ticket_data, cf_group_email_address)
+    if group_email_address is not None:
+        group_email_address = group_email_address.strip().lower()
     group_email_address, result = shared_ldap.find_group(
         group_email_address, ['owner'])
 
     shared_sd.set_summary(
-        "View/Change group ownership for %s" % group_email_address)
+        f"View/Change group ownership for {group_email_address}")
     shared_sd.assign_issue_to(shared.globals.CONFIGURATION["bot_name"])
 
     if len(result) == 0:
@@ -179,7 +183,9 @@ def transition(status_to, ticket_data):
     if status_to == "In Progress":
         cf_group_email_address = custom_fields.get(GROUP_EMAIL_ADDRESS)
         group_email_address = shared_sd.get_field(
-            ticket_data, cf_group_email_address).strip().lower()
+            ticket_data, cf_group_email_address)
+        if group_email_address is not None:
+            group_email_address = group_email_address.strip().lower()
         group_email_address, result = shared_ldap.find_group(
             group_email_address, ['owner'])
         action_change(ticket_data, result[0])
@@ -190,9 +196,16 @@ def action_change(ticket_data, group_owners):
     grp_name = shared_ldap.extract_id_from_dn(group_owners.entry_dn)
     cf_group_owners = custom_fields.get("Group Owners")
     ownerchanges = shared_sd.get_field(ticket_data, cf_group_owners)
-    changes = ownerchanges.split("\r\n")
+    if ownerchanges is not None:
+        changes = ownerchanges.split("\r\n")
+    else:
+        changes = None
     cf_added_removed = custom_fields.get("Added / Removed")
-    action_value = shared_sd.get_field(ticket_data, cf_added_removed)["value"]
+    action_field = shared_sd.get_field(ticket_data, cf_added_removed)
+    if action_field is not None:
+        action_value = ["value"]
+    else:
+        action_value = None
     if action_value is None:
         change_to_make = ""
     else:
@@ -285,7 +298,7 @@ def process_change(keyword, email_address, owners, group_cn, response):
     if result is None:
         response += (
             "Couldn't find an entry on Linaro Login with an email "
-            "address of '%s'.\r\n" % email_address
+            f"address of '{email_address}'.\r\n"
         )
         return False, True, response
 
@@ -324,28 +337,26 @@ def process_keyword(keyword, result, owners, email_address, group_cn, response):
     if keyword == "add":
         if result in owners:
             response += (
-                "%s is already an owner of the group.\r\n"
-                % email_address
+                f"{email_address} is already an owner of the group.\r\n"
             )
         else:
-            response += "Adding %s\r\n" % email_address
+            response += f"Adding {email_address}\r\n"
             shared_ldap.add_owner_to_group(group_cn, result)
             change_made = True
     elif keyword == "remove":
         if result in owners:
-            response += "Removing %s\r\n" % email_address
+            response += f"Removing {email_address}\r\n"
             shared_ldap.remove_owner_from_group(
                 group_cn, result)
             change_made = True
         else:
             response += (
-                "%s is not an owner of the group so cannot "
-                "be removed as one.\r\n" % email_address
+                f"{email_address} is not an owner of the group so cannot "
+                "be removed as one.\r\n"
             )
     else:
         response += (
-            "%s is not recognised as 'add' or 'remove'.\r\n"
-            % keyword
+            f"{keyword} is not recognised as 'add' or 'remove'.\r\n"
         )
         got_error = True
     return change_made, got_error, response
@@ -360,7 +371,7 @@ def post_owners_of_group_as_comment(group_full_dn):
     if len(result) == 1 and result[0].owner.values != []:
         response = "Here are the owners for the group:\r\n"
         for owner in result[0].owner.values:
-            response += "* [%s|mailto:%s]\r\n" % owner_and_display_name(owner)
+            response += "* [%s|mailto:%s]\r\n" % owner_and_display_name(owner) # pylint: disable=consider-using-f-string
     else:
         response = "There are no owners for the group."
     shared_sd.post_comment(response, True)
@@ -370,14 +381,14 @@ def owner_and_display_name(owner):
     this_owner = shared_ldap.get_object(
         owner,
         ['displayName', 'mail', 'givenName', 'sn'])
+    if this_owner is None:
+        return None, None
     if this_owner.displayName.value is not None:
         display_name = this_owner.displayName.value
     else:
         if this_owner.sn.value is not None:
             if this_owner.givenName.value is not None:
-                display_name = "%s %s" % (
-                    this_owner.givenName.value,
-                    this_owner.sn.value)
+                display_name = f"{this_owner.givenName.value} {this_owner.sn.value}"
             else:
                 display_name = this_owner.sn.value
         else:
