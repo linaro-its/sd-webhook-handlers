@@ -45,16 +45,35 @@ def create(ticket_data):
         shared_sd.resolve_ticket("Declined")
         return
 
-    cf_group_name = custom_fields.get("Group Name")
-    cf_group_description = custom_fields.get("Group Description")
-    cf_group_owners = custom_fields.get("Group Owners")
+    cf_group_name = custom_fields.get("Group / List Name")
+    cf_group_description = custom_fields.get("Group / List Description")
+    cf_group_owners = custom_fields.get("Group Owner(s)")
     cf_group_email_address = custom_fields.get("Group Email Address")
 
     group_display_name = shared_sd.get_field(
-        ticket_data, cf_group_name).strip()
+        ticket_data, cf_group_name)
+    if group_display_name is None:
+        shared_sd.post_comment(
+            "Sorry but a display name must be provided.",
+            True
+        )
+        shared_sd.resolve_ticket("Declined")
+        return
+
+    group_description = shared_sd.get_field(ticket_data, cf_group_description)
+    if group_description is None:
+        shared_sd.post_comment(
+            "Sorry but a group description must be provided.",
+            True
+        )
+        shared_sd.resolve_ticket("Declined")
+        return
+
+    group_display_name = group_display_name.strip()
+    group_lower_name = group_display_name.lower()
     # Take the group name, make it lower case, replace spaces with hyphens and
     # remove any other potentially troublesome characters.
-    group_name = re.sub(r"\s+", '-', group_display_name.lower())
+    group_name = re.sub(r"\s+", '-', group_lower_name)
     group_name = re.sub(r"[^\w\s-]", '', group_name)
     group_email_address = shared_sd.get_field(
         ticket_data, cf_group_email_address)
@@ -70,13 +89,13 @@ def create(ticket_data):
         else:
             group_domain = group_email_address.split('@')[1]
 
-    shared_sd.set_summary("Create LDAP group for %s" % group_email_address)
+    shared_sd.set_summary(f"Create LDAP group for {group_email_address}")
 
     result = shared_ldap.find_from_email(group_email_address)
     if result is not None:
         reply = (
-            "Cannot create this group because the email address ('%s') is "
-            "already being used by the LDAP object %s" % (group_email_address, result))
+            f"Cannot create this group because the email address ('{group_email_address}') is "
+            f"already being used by the LDAP object {result}")
         shared_sd.post_comment(reply, True)
         shared_sd.resolve_ticket("Won't Do")
         return
@@ -84,8 +103,8 @@ def create(ticket_data):
     result = shared_ldap.find_from_attribute("cn", group_name)
     if result is not None:
         reply = (
-            "Cannot create this group because the name ('%s') is already "
-            "being used by the LDAP object %s" % (group_name, result))
+            f"Cannot create this group because the name ('{group_name}') is already "
+            f"being used by the LDAP object {result}")
         shared_sd.post_comment(reply, True)
         shared_sd.resolve_ticket("Won't Do")
         return
@@ -94,11 +113,11 @@ def create(ticket_data):
     if google is not None:
         shared_sd.post_comment(
             "Cannot create this group because the email address is an alias "
-            "for the group %s" % google, True)
+            f"for the group {google}", True)
         shared_sd.resolve_ticket("Won't Do")
         return
 
-    group_description = shared_sd.get_field(ticket_data, cf_group_description).strip()
+    group_description = group_description.strip()
 
     if "=" in group_description or "=" in group_display_name:
         shared_sd.post_comment(
@@ -112,7 +131,7 @@ def create(ticket_data):
     group_owners = shared_sd.get_field(ticket_data, cf_group_owners)
     if group_owners is not None:
         owner_list = process_group_owners(group_owners)
-    if owner_list == []:
+    if not owner_list:
         owner_list = handle_empty_owners()
 
     result = shared_ldap.create_group(
@@ -168,15 +187,15 @@ def process_group_owners(data):
             result = shared_ldap.find_from_email(owner)
             if result is None:
                 shared_sd.post_comment(
-                    "Unable to add %s as an owner as the email address "
-                    "cannot be found in Linaro Login." % owner, True)
+                    f"Unable to add {owner} as an owner as the email address "
+                    "cannot be found in Linaro Login.", True)
             else:
                 # Need to make sure we append the mailing group if it
                 # is a group!
                 if ",ou=security," not in result:
                     owner_list.append(result)
                     shared_sd.post_comment(
-                        "Adding %s as an owner." % owner, True)
+                        f"Adding {owner} as an owner.", True)
     return owner_list
 
 
@@ -189,15 +208,15 @@ def handle_empty_owners():
     result = shared_ldap.find_from_email(shared.globals.REPORTER)
     if result is not None:
         shared_sd.post_comment(
-            "Adding %s as the owner of the group." % shared.globals.REPORTER, True)
+            f"Adding {shared.globals.REPORTER} as the owner of the group.", True)
         return [result]
 
     # OK - something stupid is happening but let's give ourselves
     # a safety net.
     shared_sd.post_comment(
-        "Unable to add %s as an owner as the email address cannot be "
+        f"Unable to add {shared.globals.REPORTER} as an owner as the email address cannot be "
         "found in Linaro Login. This means the automation has not "
         "been able to find any of the specified email addresses in "
         "Linaro Login. Consequently, IT Services will need to manage "
-        "it in the interim." % shared.globals.REPORTER, True)
+        "it in the interim.", True)
     return ["cn=its,ou=mailing,ou=groups,dc=linaro,dc=org"]

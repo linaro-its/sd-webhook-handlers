@@ -16,7 +16,7 @@ def create(ticket_data):
     if person is None:
         person = shared.globals.REPORTER
     if person is not None:
-        person = person.strip().lower().encode('utf-8')
+        person = person.strip().lower()
     # Do they have an account in LDAP?
     person_dn = shared_ldap.find_single_object_from_email(person)
     if person_dn is None:

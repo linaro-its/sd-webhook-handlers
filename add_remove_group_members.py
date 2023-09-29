@@ -120,8 +120,15 @@ def transition(status_to, ticket_data):
 def action_group_membership_change(email_address, group_obj, ticket_data):
     """ Apply the membership changes from the ticket """
     cf_group_member_email_addresses = custom_fields.get(
-        "Group member email addresses")
+        "Email Address(es) of Users")
     changes = shared_sd.get_field(ticket_data, cf_group_member_email_addresses)
+    if changes is None:
+        shared_sd.post_comment(
+            "Unable to retrieve changes from form.",
+            False
+        )
+        shared_sd.transition_request_to("Waiting for Support")
+        return
     changes = linaro_shared.response_split(changes)
     cf_add_remove = custom_fields.get("Added / Removed")
     change_to_make = shared_sd.get_field(ticket_data, cf_add_remove)["value"]

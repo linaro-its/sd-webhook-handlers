@@ -126,7 +126,7 @@ def create(ticket_data):
 
     # Do we have any changes to process? If not, post the current owners to
     # the ticket.
-    cf_group_owners = custom_fields.get("Group Owners")
+    cf_group_owners = custom_fields.get("Group Owner(s)")
     ownerchanges = shared_sd.get_field(ticket_data, cf_group_owners)
     if ownerchanges is None:
         post_owners_of_group_as_comment(result[0].entry_dn)
@@ -194,7 +194,7 @@ def transition(status_to, ticket_data):
 def action_change(ticket_data, group_owners):
     """ Process the ownership changes specified in the field. """
     grp_name = shared_ldap.extract_id_from_dn(group_owners.entry_dn)
-    cf_group_owners = custom_fields.get("Group Owners")
+    cf_group_owners = custom_fields.get("Group Owner(s)")
     ownerchanges = shared_sd.get_field(ticket_data, cf_group_owners)
     if ownerchanges is not None:
         changes = ownerchanges.split("\r\n")
@@ -202,15 +202,11 @@ def action_change(ticket_data, group_owners):
         changes = None
     cf_added_removed = custom_fields.get("Added / Removed")
     action_field = shared_sd.get_field(ticket_data, cf_added_removed)
-    if action_field is not None:
-        action_value = ["value"]
+    if action_field is None:
+        changes_to_make = ""
     else:
-        action_value = None
-    if action_value is None:
-        change_to_make = ""
-    else:
-        change_to_make = action_value
-    batch_process_ownership_changes(grp_name, changes, True, change_to_make)
+        changes_to_make = action_field["value"]
+    batch_process_ownership_changes(grp_name, changes, True, changes_to_make)
     post_owners_of_group_as_comment(group_owners.entry_dn)
     if (group_owners.owner.values != [] and
             shared_ldap.reporter_is_group_owner(group_owners.owner.values)):

@@ -5,6 +5,11 @@ from shared import custom_fields, shared_ldap, shared_sd
 
 import linaro_shared
 
+CAPABILITIES = [
+    "CREATE",
+    "COMMENT",
+    "TRANSITION"
+]
 
 def comment(ticket_data):
     """Triggered when a comment is posted."""
@@ -39,7 +44,7 @@ def create(ticket_data):
     if group_email_address is not None and "value" in group_email_address:
         group_email_address = group_email_address["value"]
     if group_email_address is not None:
-        group_email_address = group_email_address.strip().lower().encode('utf-8')
+        group_email_address = group_email_address.strip().lower()
     group_email_address, result = shared_ldap.find_group(
         group_email_address, ['owner', 'uniqueMember'])
 
@@ -114,7 +119,7 @@ def transition(status_to, ticket_data):
         if group_email_address is not None and "value" in group_email_address:
             group_email_address = group_email_address["value"]
         if group_email_address is not None:
-            group_email_address = group_email_address.strip().lower().encode('utf-8')
+            group_email_address = group_email_address.strip().lower()
         group_dn = shared_ldap.find_single_object_from_email(group_email_address)
         delete_group(group_dn)
 
