@@ -90,6 +90,7 @@ def create(ticket_data):
         it_members = shared_ldap.get_group_membership(
             "cn=its,ou=mailing,ou=groups,dc=linaro,dc=org")
         shared_sd.assign_approvers(it_members, cf_approvers)
+        shared_sd.transition_request_to("Needs approval")
         return
 
     if IT_BOT in group_obj.owner.values:
@@ -107,6 +108,7 @@ def create(ticket_data):
         "As you are not an owner of this group, the owners will be asked"
         " to approve or decline your request.", True)
     shared_sd.assign_approvers(group_obj.owner.values, cf_approvers)
+    shared_sd.transition_request_to("Needs approval")
 
 def transition(status_to, ticket_data):
     """
