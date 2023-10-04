@@ -45,14 +45,14 @@ def create(ticket_data):
         # It shouldn't be - it is a mandatory field ...
         shared_sd.post_comment("It has not been possible to create the account as requested.", True)
         shared_sd.post_comment(
-            "Unable to retrieve email address from CF %s" % cf_email_address, False)
+            f"Unable to retrieve email address from CF {cf_email_address}", False)
         shared_sd.resolve_ticket("Declined")
         return
 
     email_address = email_address.strip().lower()
     email_address = shared_ldap.cleanup_if_gmail(email_address)
 
-    shared_sd.set_summary("Create external user/account for %s" % email_address)
+    shared_sd.set_summary(f"Create external user/account for {email_address}")
 
     if not ok_to_proceed(email_address):
         return
@@ -69,13 +69,13 @@ def create(ticket_data):
     uid = shared_ldap.calculate_uid(first_name, surname)
     if uid is None:
         shared_sd.post_comment("It has not been possible to create the account as requested.", True)
-        shared_sd.post_comment("Cannot calculated UID for '%s' '%s'" % (first_name, surname), False)
+        shared_sd.post_comment(f"Cannot calculated UID for '{first_name}' '{surname}'", False)
         shared_sd.resolve_ticket("Declined")
         return
 
     md5_password = None
     cf_account_type = custom_fields.get("External Account / Contact")
-    account_type = shared_sd.get_field(ticket_data, cf_account_type)
+    account_type = shared_sd.get_field(ticket_data, cf_account_type)["value"]
     if account_type != "Contact":
         _, md5_password = linaro_shared.make_password()
     account_dn = shared_ldap.create_account(
@@ -91,6 +91,11 @@ def create(ticket_data):
         shared_sd.transition_request_to("Waiting for support")
         shared_sd.assign_issue_to(None)
         return
+
+    shared_sd.post_comment(
+        f"{account_type} created at {account_dn}",
+        True
+    )
 
     if account_type != "Contact":
         send_new_account_email(
@@ -111,7 +116,7 @@ def ok_to_proceed(email_address):
     if check is not None:
         response = (
             "Cannot fulfil this request because the email address is "
-            "already being used by %s" % check
+            f"already being used by {check}"
         )
         shared_sd.post_comment(response, True)
         shared_sd.resolve_ticket(WONT_DO)
@@ -128,7 +133,7 @@ def ok_to_proceed(email_address):
 
         response = (
             "Cannot fulfil this request because there is a Linaro "
-            "account associated with the email address (%s)" % dup_email
+            f"account associated with the email address ({dup_email})"
         )
         shared_sd.post_comment(response, True)
         shared_sd.resolve_ticket(WONT_DO)
@@ -168,9 +173,9 @@ def send_new_account_email(first_name, surname, email_address, account_dn):
     uid = shared_ldap.extract_id_from_dn(account_dn)
     # Read in the template email.
     file_dir = os.path.dirname(os.path.abspath(__file__))
-    with open("%s/create_external_user_email.txt" % file_dir, "r") as email_file:
+    with open(f"{file_dir}/create_external_user_email.txt", "r", encoding="utf-8") as email_file:
         text_body = email_file.read()
-    with open("%s/create_external_user_email.html" % file_dir, "r") as email_file:
+    with open(f"{file_dir}/create_external_user_email.html", "r", encoding="utf-8") as email_file:
         html_body = email_file.read()
     # Substitute the parameters
     name = first_name
