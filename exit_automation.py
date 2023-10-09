@@ -5,6 +5,7 @@
 # is set to the email address of the person being exited.
 
 import requests
+import shared_vault
 
 CAPABILITIES = [
     "CREATE",
@@ -14,14 +15,9 @@ CAPABILITIES = [
 def create(ticket_data):
     """ Ticket has been created """
     # Called when the ticket is first created and when the ticket transitions
-    # to Phase 3. Fire the GitHub Action with the additional information
-    # required.
-    fire_github_workflow(ticket_data)
-
-
-def transition(ticket_data):
-    """ Check transition state and act accordingly """
-    # If we've transitioned to Phase 3, fire the GitHub Action accordingly.
+    # to Phase 3. The latter is handled by the "Exit Leaver - 6 months" SLA.
+    #
+    # Fire the GitHub Action with the additional information required.
     fire_github_workflow(ticket_data)
 
 
@@ -29,9 +25,10 @@ def fire_github_workflow(ticket_data):
     """ Fire the GitHub Action """
     issue_self = ticket_data["self"]
     print(f'Triggering workflow for {issue_self}')
+    bot_authorization = shared_vault.get_secret("secret/github/linaro-build", "pat")
     headers = {
         'accept': 'application/vnd.github.v3+json',
-        'authorization': 'token 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'
+        'authorization': f'token {bot_authorization}'
     }
     body = {
         "ref": "master",
