@@ -5,7 +5,8 @@
 # is set to the email address of the person being exited.
 
 import requests
-import shared_vault
+import json
+from shared import shared_vault
 
 CAPABILITIES = [
     "CREATE",
@@ -52,6 +53,14 @@ def jira_hook(ticket_data, changelog):
     #
     # 1. The ticket is in Phase 2 and has been assigned to somebody.
     # 2. The ticket is in Phase 2 and the custom field has been updated.
+    #
+    # Work around a bug where the "self" link is broken
+    parts = ticket_data["self"].split("/")
+    if parts[-2] != "issue":
+        # We're missing part of the URL
+        parts.append(parts[-1])
+        parts[-2] = "issue"
+        ticket_data["self"] = "/".join(parts)
     if is_valid_assignment(ticket_data, changelog) or is_checkfield_update(ticket_data, changelog):
         fire_github_workflow(ticket_data)
 
@@ -80,11 +89,11 @@ def is_checkfield_update(ticket_data, changelog):
     if "items" in changelog:
         items = changelog["items"]
         for item in items:
-            if item["field"] == "Exit Automation - Phase 2":
+            if item["field"] == "Checklist Text":
                 return in_phase_two(ticket_data)
     return False
 
 
 def in_phase_two(ticket_data):
     """ Is the ticket in Phase 2? """
-    return ticket_data["issue"]["fields"]["status"]["name"] == "Phase 2"
+    return ticket_data["fields"]["status"]["name"] == "Phase 2"
