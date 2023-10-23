@@ -25,6 +25,14 @@ def create(ticket_data):
 def fire_github_workflow(ticket_data):
     """ Fire the GitHub Action """
     issue_self = ticket_data["self"]
+    #
+    # Work around a bug where the "self" link is broken
+    parts = issue_self.split("/")
+    if parts[-2] != "issue":
+        # We're missing part of the URL
+        parts.append(parts[-1])
+        parts[-2] = "issue"
+        issue_self = "/".join(parts)
     print(f'Triggering workflow for {issue_self}')
     bot_authorization = shared_vault.get_secret("secret/github/linaro-build", "pat")
     headers = {
@@ -53,14 +61,6 @@ def jira_hook(ticket_data, changelog):
     #
     # 1. The ticket is in Phase 2 and has been assigned to somebody.
     # 2. The ticket is in Phase 2 and the custom field has been updated.
-    #
-    # Work around a bug where the "self" link is broken
-    parts = ticket_data["self"].split("/")
-    if parts[-2] != "issue":
-        # We're missing part of the URL
-        parts.append(parts[-1])
-        parts[-2] = "issue"
-        ticket_data["self"] = "/".join(parts)
     if is_valid_assignment(ticket_data, changelog) or is_checkfield_update(ticket_data, changelog):
         fire_github_workflow(ticket_data)
 
