@@ -327,7 +327,7 @@ def check_approval_assignee_member_engineer(ticket_data):
             shared_sd.set_summary(f"{summary}: {name}")
 
     # Get the manager for this person
-    mgr_email = shared_ldap.get_manager_from_dn(ldap_search.manager.value)
+    mgr_email = shared_ldap.get_manager_from_dn(ldap_dn)
     if mgr_email is None:
         # Fall back to getting Diane to approve the ticket
         mgr_email = "diane.cheshire@linaro.org"
