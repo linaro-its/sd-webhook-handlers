@@ -311,13 +311,13 @@ def check_approval_assignee_member_engineer(ticket_data):
         )
         return
 
-    director = get_director(ldap_search.departmentNumber.value)
-    if director is None:
-        shared_sd.post_comment(
-            "[~philip.colmer@linaro.org] Couldn't find the director for"
-            f" {ldap_search.departmentNumber.value}'",
-            False)
-        return
+    # director = get_director(ldap_search.departmentNumber.value)
+    # if director is None:
+    #     shared_sd.post_comment(
+    #         "[~philip.colmer@linaro.org] Couldn't find the director for"
+    #         f" {ldap_search.departmentNumber.value}'",
+    #         False)
+    #     return
 
     # Add the name to the summary if we haven't already
     summary = shared_sd.get_field(ticket_data, "summary")
