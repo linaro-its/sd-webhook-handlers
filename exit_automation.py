@@ -51,7 +51,9 @@ def fire_github_workflow(ticket_data):
         "actions/workflows/exit.yml/dispatches"
     )
     result = requests.post(url, headers=headers, json=body, timeout=60)
-    print(f"Got {result.status_code} after triggering workflow for {issue_self}")
+    print(
+        "fire_github_workflow: got "
+        f"{result.status_code} after triggering workflow for {issue_self}")
 
 
 def jira_hook(ticket_data, changelog):
