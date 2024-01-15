@@ -173,7 +173,7 @@ def transition_member(account_dn, email_address):
         return RESULT_STATE.Customer
     # Good to go ...
     clean_up_account(account)
-    return transition_account(account, email_address, new_email)
+    return transition_account(account, new_email, email_address)
 
 
 def clean_up_account(account):
