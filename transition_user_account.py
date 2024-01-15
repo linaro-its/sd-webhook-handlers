@@ -50,9 +50,11 @@ def create(ticket_data):
     """ Create handler. """
     # Start by making sure that the requester is in IT or HR.
     email_address = shared_sd.reporter_email_address(ticket_data)
+    print(f"transition_user_account: reporter email address = {email_address}")
     account_dn = shared_ldap.find_from_email(email_address)
+    print(f"transition_user_account: account DN = {account_dn}")
     valid_account = shared_ldap.is_dn_in_group("hr", account_dn) or \
-        shared_ldap.is_dn_in_group("it-services", account_dn)
+        shared_ldap.is_dn_in_group("its", account_dn)
     if not valid_account:
         shared_sd.post_comment(
             "You must be in HR or IT Services to use this request.",
