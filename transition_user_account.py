@@ -64,7 +64,17 @@ def create(ticket_data):
 
     outcome = RESULT_STATE.Done
     cf_addresses = custom_fields.get("Email Address(s) of Users")
-    addresses = shared_sd.get_field(ticket_data, cf_addresses).split("\r\n")
+    if cf_addresses is None:
+        cf_addresses = custom_fields.get("Email Address(es) of Users (Legacy ITS)")
+    addresses = shared_sd.get_field(ticket_data, cf_addresses)
+    if addresses is None:
+        shared_sd.post_comment(
+            "Unable to retrieve users to transition",
+            True
+        )
+        shared_sd.resolve_ticket(resolution_state="Won't Do")
+        return
+    addresses = addresses.split("\r\n")
     for address in addresses:
         # Clean up by trimming white space.
         clean = address.strip().lower()
