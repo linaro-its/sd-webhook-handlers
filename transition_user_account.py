@@ -147,22 +147,28 @@ def transition_member(account_dn, email_address):
     account = shared_ldap.get_object(
         account_dn,
         [
-            "givenName",
-            "sn",
+            "uid",
             "memberOf"
         ]
     )
-    if "givenName" in account:
-        new_email = "%s.%s@linaro.org" % (
-            account["givenName"].value, account["sn"].value)
-    else:
-        new_email = "%s@linaro.org" % account["sn"].value
-    new_email = new_email.lower()
-    check = shared_ldap.find_matching_objects("(mail=%s)" % new_email, ["cn"])
+    if account is None:
+        shared_sd.post_comment(
+            f"Can't transition {email_address} because they cannot be found in LDAP",
+            True
+        )
+        return
+    if "uid" not in account:
+        shared_sd.post_comment(
+            f"Can't transition {email_address} because their UID cannot be found",
+            True
+        )
+        return
+    new_email = f'{account["uid"]}@linaro.org'.lower()
+    check = shared_ldap.find_matching_objects(f"(mail={new_email})", ["cn"])
     if check is not None:
         shared_sd.post_comment(
-            "Can't transition %s because the calculated new email address (%s) "
-            "is in use already." % (email_address, new_email), True)
+            f"Can't transition {email_address} because the calculated new email "
+            f"address ({new_email}) is in use already.", True)
         shared_sd.post_comment(check[0].entry_dn, False)
         return RESULT_STATE.Customer
     # Good to go ...
