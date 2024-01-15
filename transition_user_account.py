@@ -191,9 +191,14 @@ def clean_up_account(account):
 
 def transition_account(account, new_email, old_email):
     """Move the account and change the email address at the same time."""
+    print(f"transition_account: old_email={old_email}")
+    print(f"transition_account: new_email={new_email}")
     new_ou = shared_ldap.find_best_ou_for_email(new_email)
+    print(f"transition_account: proposed new OU={new_ou}")
     # Make sure we're actually moving the account! Check against existing OU.
     old_ou = account.entry_dn.split(",", 1)[1]
+    print(f"transition_account: comparing against old_ou={old_ou}")
+    print(f"transition_account: derived from DN {account.entry_dn}")
     if old_ou == new_ou:
         shared_sd.post_comment(
             "Can't transition %s: OU is stuck at %s. IT Services needs to investigate "
