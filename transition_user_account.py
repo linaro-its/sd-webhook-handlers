@@ -63,7 +63,7 @@ def create(ticket_data):
         return
 
     outcome = RESULT_STATE.Done
-    cf_addresses = custom_fields.get("Email Address(s) of Users")
+    cf_addresses = custom_fields.get("Email Address(es) of Users")
     if cf_addresses is None:
         cf_addresses = custom_fields.get("Email Address(es) of Users (Legacy ITS)")
     addresses = shared_sd.get_field(ticket_data, cf_addresses)
