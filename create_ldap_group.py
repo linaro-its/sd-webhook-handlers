@@ -163,8 +163,7 @@ def create(ticket_data):
                 "https://groups.google.com/a/%s/g/%s/settings#posting\r\n"
                 "\r\nIMPORTANT! Do not change group membership via Google."
                 " It MUST be done via the [Add/Remove Users from Group|"
-                "https://servicedesk.linaro.org/servicedesk/customer/portal/"
-                "3/create/139] request otherwise changes will be lost.")
+                "https://linaro-servicedesk.atlassian.net/servicedesk/customer/portal/32/group/116/create/551] request otherwise changes will be lost.")
 
     shared_sd.post_comment(response % (
             group_email_address,

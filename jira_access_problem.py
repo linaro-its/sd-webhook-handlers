@@ -22,10 +22,10 @@ def create(ticket_data):
     if person_dn is None:
         shared_sd.post_comment(
             f"There isn't an account in Linaro Login with {person} as the email address.\r\n"
-            "Please go to https://servicedesk.linaro.org/servicedesk/customer/portal/3/create/120 "
+            "Please go to https://linaro-servicedesk.atlassian.net/servicedesk/customer/portal/32/group/117/create/557 "
             "and create an *external account* for this person.\r\n"
             "It will then be necessary to go to "
-            "https://servicedesk.linaro.org/servicedesk/customer/portal/3/create/142 to request "
+            "https://linaro-servicedesk.atlassian.net/servicedesk/customer/portal/32/group/113/create/547 to request "
             "access to JIRA once the account has been created.", True)
         shared_sd.resolve_ticket()
         return
@@ -40,6 +40,6 @@ def create(ticket_data):
     if person_dn not in jira_access:
         shared_sd.post_comment(
             f"{person} hasn't been granted access to JIRA.\r\n"
-            "Please go to https://servicedesk.linaro.org/servicedesk/customer/portal/3/create/142 "
+            "Please go to https://linaro-servicedesk.atlassian.net/servicedesk/customer/portal/32/group/116/create/551 "
             "to request access for them.", True)
         shared_sd.resolve_ticket()

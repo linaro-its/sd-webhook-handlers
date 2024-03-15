@@ -60,7 +60,7 @@ def create(ticket_data, check_quota=True):
             ("Sorry but access to JIRA cannot be granted for this email address "
              "because it cannot be found on Linaro Login. Do you need to create "
              "the account first via "
-             "https://servicedesk.linaro.org/servicedesk/customer/portal/3/create/120 ?"),
+             "https://linaro-servicedesk.atlassian.net/servicedesk/customer/portal/32/group/117/create/557 ?"),
             True)
         shared_sd.resolve_ticket("Won't Do")
         return
@@ -82,7 +82,7 @@ def create(ticket_data, check_quota=True):
                 "It looks like this person already has access to JIRA. "
                 "If you need access to a specific JIRA project, please "
                 "contact the appropriate project admninistrator or use "
-                "https://servicedesk.linaro.org/servicedesk/customer/portal/3/create/61", True)
+                "https://linaro-servicedesk.atlassian.net/servicedesk/customer/portal/32/group/113/create/540", True)
             shared_sd.resolve_ticket("Won't Do")
             return
 
@@ -117,7 +117,7 @@ def create(ticket_data, check_quota=True):
             "Linaro staff, assignees and Member Engineers already have access to JIRA. "
             "If you need access to a specific JIRA project, please contact the appropriate "
             " project admninistrator or use "
-            "https://servicedesk.linaro.org/servicedesk/customer/portal/3/create/61", True)
+            "https://linaro-servicedesk.atlassian.net/servicedesk/customer/portal/32/group/113/create/540", True)
         shared_sd.resolve_ticket("Won't Do")
         return
 
