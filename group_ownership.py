@@ -18,8 +18,10 @@ WONT_DO = "Won't Do"
 def comment(ticket_data):
     """ Comment handler """
     last_comment, keyword = shared_sd.central_comment_handler(
-        ["add", "remove"],  # Public comments
-        ["help", "retry"])  # Private comments
+        ["add", "remove", "help"],  # Public comments
+        ["retry"])  # Private comments
+    
+    print(f"group_ownership comment handler: {last_comment}, {keyword}")
 
     if keyword == "help":
         shared_sd.post_comment(
@@ -30,6 +32,11 @@ def comment(ticket_data):
              "issues have been resolved."), False)
     elif keyword == "retry":
         create(ticket_data)
+    elif keyword == "add" or keyword == "remove":
+        # Explicitly process comment if keyword is add or remove so that this works
+        # for IT staff!
+        process_public_comment(ticket_data, last_comment, keyword)
+        # because ok_to_process_public_comment ignores comments from IT!
     elif (linaro_shared.ok_to_process_public_comment(last_comment) and
           (keyword is None or not process_public_comment(ticket_data, last_comment, keyword))):
         shared_sd.post_comment(
@@ -75,6 +82,7 @@ def process_public_comment(ticket_data, last_comment, keyword):
             keyword in ("add", "remove")):
         grp_name = shared_ldap.extract_id_from_dn(result[0].entry_dn)
         changes = last_comment["body"].split("\n")
+        print(f"process_public_comment: {grp_name}, {changes}")
         batch_process_ownership_changes(grp_name, changes)
         post_owners_of_group_as_comment(result[0].entry_dn)
         return True
@@ -247,9 +255,11 @@ def batch_process_ownership_changes(
     for change in batch:
         if change != "":
             email_address, keyword = parse_change_line(auto, change, keyword)
+            print(f"parse_change_line returned {email_address} and {keyword}")
             local_change, got_error, response = process_change(
                 keyword, email_address, owners, group_cn, response)
             if got_error:
+                print("got error back from process_change")
                 break
             change_made = change_made or local_change
 
@@ -259,6 +269,8 @@ def batch_process_ownership_changes(
             "Please note it can take up to 15 minutes for these changes to "
             "appear on Google."
         )
+    else:
+        response += "No change made as a result of the last instruction."
 
     if response != "":
         shared_sd.post_comment(response, True)
