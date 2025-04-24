@@ -19,11 +19,11 @@ def create(ticket_data):
     # to Phase 3. The latter is handled by the "Exit Leaver - 6 months" SLA.
     #
     # Fire the GitHub Action with the additional information required.
-    fire_github_workflow(ticket_data)
+    fire_gitlab_workflow(ticket_data)
 
 
-def fire_github_workflow(ticket_data):
-    """ Fire the GitHub Action """
+def fire_gitlab_workflow(ticket_data):
+    """ Fire the GitLab Pipeline """
     issue_self = ticket_data["self"]
     #
     # Work around a bug where the "self" link is broken
@@ -34,23 +34,16 @@ def fire_github_workflow(ticket_data):
         parts[-2] = "issue"
         issue_self = "/".join(parts)
     print(f'Triggering workflow for {issue_self}')
-    bot_authorization = shared_vault.get_secret("secret/github/linaro-build", "pat")
-    headers = {
-        'accept': 'application/vnd.github.v3+json',
-        'authorization': f'token {bot_authorization}'
-    }
-    body = {
+    auth_token = shared_vault.get_secret("secret/misc/gitlab-exit-automation")
+    url = "https://gitlab.com/api/v4/projects/68959654/trigger/pipeline"
+    payload = {
+        "token": auth_token,
         "ref": "master",
-        "inputs": {
-            "sd_reference": issue_self,
-            "sd_user": "it.support.bot"
-        }
+        "variables[SD_REFERENCE]": issue_self,
+        "variables[WORKFLOW_NAME]": "Exit automation: " + ticket_data["key"]
     }
-    url = (
-        "https://api.github.com/repos/linaro-its/exit-automation/"
-        "actions/workflows/exit.yml/dispatches"
-    )
-    result = requests.post(url, headers=headers, json=body, timeout=60)
+
+    result = requests.post(url, data=payload, timeout=60)
     print(
         "fire_github_workflow: got "
         f"{result.status_code} after triggering workflow for {issue_self}")
@@ -64,7 +57,7 @@ def jira_hook(ticket_data, changelog):
     # 1. The ticket is in Phase 2 and has been assigned to somebody.
     # 2. The ticket is in Phase 2 and the custom field has been updated.
     if is_valid_assignment(ticket_data, changelog) or is_checkfield_update(ticket_data, changelog):
-        fire_github_workflow(ticket_data)
+        fire_gitlab_workflow(ticket_data)
 
 
 def is_valid_assignment(ticket_data, changelog):
