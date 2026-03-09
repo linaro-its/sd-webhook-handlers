@@ -6,7 +6,8 @@
 
 import requests
 import json
-from shared import shared_vault
+# from shared import shared_vault
+from shared import shared_ssmparameterstore as shared_ssm
 
 CAPABILITIES = [
     "CREATE",
@@ -34,7 +35,8 @@ def fire_gitlab_workflow(ticket_data):
         parts[-2] = "issue"
         issue_self = "/".join(parts)
     print(f'Triggering workflow for {issue_self}')
-    auth_token = shared_vault.get_secret("secret/misc/gitlab-exit-automation")
+    # auth_token = shared_vault.get_secret("secret/misc/gitlab-exit-automation")
+    auth_token = shared_ssm.get_secret("/secret/misc/gitlab-exit-automation")
     url = "https://gitlab.com/api/v4/projects/68959654/trigger/pipeline"
     payload = {
         "token": auth_token,
