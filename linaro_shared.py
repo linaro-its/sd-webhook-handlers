@@ -14,7 +14,9 @@ import select
 
 import paramiko
 import shared.globals
-from shared import custom_fields, shared_ldap, shared_sd, shared_vault
+# from shared import custom_fields, shared_ldap, shared_sd, shared_vault
+from shared import custom_fields, shared_ldap, shared_sd
+from shared import shared_ssmparameterstore as shared_ssm
 
 MAILTO = "mailto:"
 
@@ -104,7 +106,8 @@ def exec_command(ssh_client, command, timeout):
 
 def trigger_google_sync(level=""):
     """Connect to Linaro Login over SSH to trigger GCDS."""
-    pem = shared_vault.get_secret("secret/misc/it-support-bot.pem")
+    # pem = shared_vault.get_secret("secret/misc/it-support-bot.pem")
+    pem = shared_ssm.get_secret("/secret/misc/it-support-bot.pem")
     stdout_data, stderr_data, status_code = ssh(
         "login-us-east-1.linaro.org", "it-support-bot", pem, 100, level)
     if status_code == 0:
